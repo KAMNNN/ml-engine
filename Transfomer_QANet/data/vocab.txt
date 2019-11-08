@@ -1,0 +1,3 @@
+date 6 date 7 
+when did org 1 start becoming popular 
+beyoncé person 0 person 1 person 2 /biːˈjɒnseɪ/ bee yon born date 0 date 1 date 2 norp 0 singer songwriter record producer actress born raised gpe 0 gpe 1 performed singing dancing competitions child rose fame date 3 date 4 lead singer org 0 girl group destiny 's person 3 managed father person 4 person 5 group world 's best selling girl groups time their hiatus saw release person 6 's debut album dangerously work_of_art 0 date 5 established solo artist worldwide earned fac 0 fac 1 featured billboard hot cardinal 0 number singles work_of_art 1 work_of_art 2 work_of_art 3 work_of_art 4 
