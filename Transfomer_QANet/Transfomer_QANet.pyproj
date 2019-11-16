@@ -26,7 +26,10 @@
     <Compile Include="model.py">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="squad_dataloader.py">
+    <Compile Include="squad.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="squad_utils.py">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="Transfomer_QANet.py" />
@@ -37,9 +40,6 @@
   <ItemGroup>
     <InterpreterReference Include="CondaEnv|CondaEnv|Anaconda3" />
     <InterpreterReference Include="Global|ContinuumAnalytics|Anaconda37-64" />
-  </ItemGroup>
-  <ItemGroup>
-    <Content Include="requirements.txt" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
   <!-- Uncomment the CoreCompile target to enable the Build command in

@@ -1,4 +1,4 @@
-import squad_dataloader as squad
+import squad
 import torch 
 import torch.nn as nn
 from torch.utils.data import DataLoader
