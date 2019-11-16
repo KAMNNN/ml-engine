@@ -44,25 +44,26 @@ class Squad_DataSet(Dataset):
 
         def unicodeToAscii(s):
             return ''.join( c for c in unicodedata.normalize('NFD', s) if unicodedata.category(c) != 'Mn' and c in all_letters)
-       
+        maxlen = 0
         
         for i in tqdm(range(len(data['data']))):
             for j in range(len(data['data'][i]['paragraphs'])):
                 passage = unicodeToAscii(data['data'][i]['paragraphs'][j]['context'])
+
+                passage_length = len(passage.split(" "))
+                maxlen = max(maxlen, passage_length)
+
                 while '\n' in passage:
                     index = passage.index('\n')
                     passage = passage[0:index] + passage[index + 1:]
-
+                    
                 for k in range(len(data['data'][i]['paragraphs'][j]['qas'])):
 
                     question = unicodeToAscii(data['data'][i]['paragraphs'][j]['qas'][k]['question'])
                     id1 = data['data'][i]['paragraphs'][j]['qas'][k]['id']
                     
-
-                    if data['data'][i]['paragraphs'][j]['qas'][k]['is_impossible'] == True:
-                        answer_key = 'plausible_answers'
-                    else:
-                        answer_key = 'answers'
+                    if()
+                    answer_key = 'answers'
 
                     all_starts, all_ends, all_answers = [], [], []
                     for l in range(len(data['data'][i]['paragraphs'][j]['qas'][k][answer_key])):
@@ -87,7 +88,8 @@ class Squad_DataSet(Dataset):
                     else:
                         self.data_dicts[id1] = [passage, question, all_answers[0], (all_starts[0], all_ends[0])]
                         self.all_ids_in_data.append(id1)
-                    break
+                    
+        print(maxlen)
         assert (len(self.data_dicts) == len(self.all_ids_in_data))
 
     def __len__(self):
@@ -129,21 +131,21 @@ class Squad_DataSet(Dataset):
         context_meta = pos_ner_stop_punc(context)
         question_meta = pos_ner_stop_punc(question, False)
         answer_meta = pos_ner_stop_punc(answer)
-        tmp = answer_meta[0].lower()
-        tmp2 = self.tokenizer.encode(tmp)
-        tmp = self.tokenizer.encode('[cls]' + answer_meta[0].lower())
 
-        x_str = "[cls]" + answer_meta[0].lower() + "[seq]" + context_meta[0].lower() + "[seq]"
+        ctx = context_meta[0].lower().split(' ')
+        ctx_emb = [self.tokenizer.encode(' '.join(ctx[i:i + 512])) for i in range(0, 1024, 512)]
+        ctx = list()
+        for x in ctx_emb:
+            ctx += x
 
-        e1, e2 = self.tokenizer.encode(), self.tokenizer.encode("[cls]" + question_meta[0].lower() + "[seq]")
-        t1, t2 = list(), list()
-        for i in range(512):
-            if(i < len(e1)):
-                t1.append(e1[i])
-        for i in range(64):
-            if(i < len(e2)):
-                t2.append(e2[i])
-
-
-        return torch.tensor(t1, dtype=torch.int64, device=device), torch.tensor(t2, dtype=torch.int64, device=device)
-       
+        e1 = self.tokenizer.encode("[cls]") + ctx + self.tokenizer.encode("[seq]")
+        e2 = self.tokenizer.encode("[cls]" + question_meta[0].lower() + "[seq]")
+        e3 = self.tokenizer.encode("[cls]" + answer_meta[0].lower() + "[seq]")
+        
+        t1 = [e1[i] if(i < len(e1)) else 0 for i in range(1024) ] 
+        t2 = [e2[i] if(i < len(e2)) else 0 for i in range(64) ] 
+        t3 = [e3[i] if(i < len(e3)) else 0 for i in range(64) ] 
+        
+        return torch.tensor(t1, dtype=torch.int64, device=device),  \
+               torch.tensor(t2, dtype=torch.int64, device=device),  \
+               torch.tensor(t3, dtype=torch.int64, device=device)
