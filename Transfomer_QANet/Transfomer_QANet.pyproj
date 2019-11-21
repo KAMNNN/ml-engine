@@ -29,6 +29,7 @@
     <Compile Include="squad.py">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="squad_eval_utils.py" />
     <Compile Include="squad_utils.py">
       <SubType>Code</SubType>
     </Compile>

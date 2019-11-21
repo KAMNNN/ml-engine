@@ -5,7 +5,6 @@ import spacy
 
 nlp = spacy.load("en_core_web_sm")
 
-
 def dumpPickle(filename, buf):
     file = open(filename, 'wb')
     cPickle.dump(buf, file, -1)

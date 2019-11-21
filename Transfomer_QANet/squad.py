@@ -12,107 +12,43 @@ from nltk.translate import bleu_score
 import spacy
 import torch
 
-from squad_utils import *
+from squad_utils import (read_squad_examples, convert_examples_to_features,RawResult, write_predictions, RawResultExtended, write_predictions_extended)
 
-whitespace = tokenizer.whitespace_tokenize
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-all_letters = string.printable
-nlp = spacy.load("en_core_web_sm")
+
 ner_whitelist = ['PERSON', 'NORP', 'FAC', 'ORG', 'GPE', 'LOC', 'PRODUCT', 'EVENT', 'WORK_OF_ART', 'LAW', 'LANGUAGE', 'DATE', 'TIME', 'PERCENT', 'MONEY', 'QUANTITY', 'ORDINAL', 'CARDINAL']
 
 
-class SquadObj(object):
-   
-    def __init__(self, qas_id, question_text, doc_tokens, orig_answer_text=None, start_position=None, end_position=None, is_impossible=None):
-        self.qas_id = qas_id
-        self.question_text = question_text
-        self.doc_tokens = doc_tokens
-        self.orig_answer_text = orig_answer_text
-        self.start_position = start_position
-        self.end_position = end_position
-        self.is_impossible = is_impossible
+def PreProcess(datadir='./data', train=True):
+    TrainSet = "https://rajpurkar.github.io/SQuAD-explorer/dataset/train-v2.0.json"
+    TestSet = "https://rajpurkar.github.io/SQuAD-explorer/dataset/dev-v2.0.json"
+    urllib.request.urlretrieve(TrainSet, os.path.join(datadir,'squad-train-v2.0.json')) 
+    urllib.request.urlretrieve(TestSet, os.path.join(datadir,'squad-dev-v2.0.json'))
 
-    def __str__(self):
-        return self.__repr__()
+    if not os.path.exists(datadir):
+        os.makedirs(datadir)
 
-    def __repr__(self):
-        s = ""
-        s += "qas_id: %s" % (self.qas_id)
-        s += ", question_text: %s" % (
-            self.question_text)
-        s += ", doc_tokens: [%s]" % (" ".join(self.doc_tokens))
-        if self.start_position:
-            s += ", start_position: %d" % (self.start_position)
-        if self.end_position:
-            s += ", end_position: %d" % (self.end_position)
-        if self.is_impossible:
-            s += ", is_impossible: %r" % (self.is_impossible)
-        return s
-
-
-class Squad(Dataset):
-    def __init__(self, datadir='./data', train=True):  
-        TrainSet = "https://rajpurkar.github.io/SQuAD-explorer/dataset/train-v2.0.json"
-        TestSet = "https://rajpurkar.github.io/SQuAD-explorer/dataset/dev-v2.0.json"
-        self.data_lst = []        
-        self.tokenizer = BertTokenizer.from_pretrained('bert-large-uncased')
-        self.token_ids = len(self.tokenizer.ids_to_tokens)
-        if not os.path.exists(datadir):
-            os.makedirs(datadir)
-
-        if(train):
-            urllib.request.urlretrieve(TrainSet, os.path.join(datadir,'train-v2.0.json'))
-            data = pd.read_json(os.path.join(datadir, 'train-v2.0.json'), orient='column')['data']          
-        else:            
-            urllib.request.urlretrieve(TestSet, os.path.join(datadir,'dev-v2.0.json'))
-            data = pd.read_json(os.path.join(datadir, 'dev-v2.0.json'), orient='column')['data']
+    if(train):
+        input_file = os.path.join(datadir, 'squad-train-v2.0.json')
+    else:            
+        input_file = os.path.join(datadir, 'squad-dev-v2.0.json')
+            
+    tokenizer = BertTokenizer.from_pretrained('bert-large-uncased')        
+    examples = read_squad_examples(input_file=input_file, is_training=train, version_2_with_negative=True)
+    features = convert_examples_to_features(examples, tokenizer, 384, 128, 64, train)
+    all_input_ids = torch.tensor([f.input_ids for f in features], dtype=torch.long)
+    all_input_mask = torch.tensor([f.input_mask for f in features], dtype=torch.long)
+    all_segment_ids = torch.tensor([f.segment_ids for f in features], dtype=torch.long)
+    all_cls_index = torch.tensor([f.cls_index for f in features], dtype=torch.long)
+    all_p_mask = torch.tensor([f.p_mask for f in features], dtype=torch.float)
+    if train:
+        all_start_positions = torch.tensor([f.start_position for f in features], dtype=torch.long)
+        all_end_positions = torch.tensor([f.end_position for f in features], dtype=torch.long)
+        return TensorDataset(all_input_ids, all_input_mask, all_segment_ids,
+                        all_start_positions, all_end_positions,\
+                        all_cls_index, all_p_mask)
+    else:
+        all_example_index = torch.arange(all_input_ids.size(0), dtype=torch.long)
+        return TensorDataset(all_input_ids, all_input_mask, all_segment_ids,\
+                        all_example_index, all_cls_index, all_p_mask)
         
-        def is_whitespace(c):
-            if c == " " or c == "\t" or c == "\r" or c == "\n" or ord(c) == 0x202F:
-                return True
-            return False
-
-        entrys = list()
-
-        for entry in data:
-            for paragraph in data['paragraphs']:
-                passage = paragraph['context']
-                doc_tokens, char_to_word_offset, prev_is_whitespace = [], [], False
-                for c in passage:
-                    if is_whitespace(c):
-                        prev_is_whitespace = True
-                    else:
-                        if prev_is_whitespace:
-                            doc_tokens.append(c)
-                        else:
-                            doc_tokens[-1] += c
-                        prev_is_whitespace = False
-                        char_to_word_offset.append(len(doc_tokens) - 1)
-                for qa in passage['qas']:
-                    qas_id, question_text = qa['id'], qa['question']
-                    start_pos, end_pos, orig_answer_text, is_impossible = None, None, None, False
-                    if train:
-                        answer = qa['answers'][0]
-                        original_answer_text = qa['answers'][0]['text']
-                        answer_offset = answer['answer_start']
-                        answer_length = len(original_answer_text)
-                        start_pos = char_to_word_offset[answer_offset]
-                        end_pos = char_to_word_offset[answer_offset + answer_length - 1]
-                        actual_text = " ".join(doc_tokens[start_pos:end_pos+1])                        
-                        cleaned_answer_text = " ".join(whitespace(original_answer_text))
-                    else:
-                        start_pos = -1
-                        end_pos = -1
-                        original_answer_text = ""
-                    entrys.append(SquadObj(qas_ids, question_text, doc_tokens, orig_answer_text, start_pos, end_pos, is_impossible)) 
-        
-        self.data_lst = convert_obj_to_features(entrys, self.tokenizer, 384, 128, 64, train)     
-        
-    def __len__(self):
-        return len(self.data_lst)
-       
-    def __getitem__(self, idx):
-       return self.data_lst[idx]
-
-
-
