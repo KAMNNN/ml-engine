@@ -60,9 +60,7 @@ class DataClass:
         if(is_train):
             self.data = train()
         else:
-            self.data = evaluate()
-        self.tokeizer1 = transfomers.BertTokenizer.from_pretrained('bert-large-uncased-whole-word-masking-finetuned-squad')
-        self.tokenizer2 = []
+            self.data = evaluate()        
     def __len__(self):
         return len(self.data)
     def __getitem__(self, idx):
@@ -129,7 +127,6 @@ def _neural_get_answer_spans(para_text, _processed_spans=[]):
             if(bert_span not in spans and bert_span != ''):
                 spans.append(bert_span)
     return spans
-
 
 def _cleanup(context, question, answer):
     context_doc = nlp(context)
