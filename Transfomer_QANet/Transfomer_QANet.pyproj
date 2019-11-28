@@ -4,7 +4,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>ec4fa0b9-9caf-4b47-a053-1e68b8ff1be4</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>Transfomer_QANet.py</StartupFile>
+    <StartupFile>main.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -23,24 +23,12 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="model.py">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="squad.py">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="squad_eval_utils.py" />
-    <Compile Include="squad_utils.py">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Include="Transfomer_QANet.py" />
-    <Compile Include="utils.py">
-      <SubType>Code</SubType>
-    </Compile>
-  </ItemGroup>
-  <ItemGroup>
     <InterpreterReference Include="CondaEnv|CondaEnv|Anaconda3" />
     <InterpreterReference Include="Global|ContinuumAnalytics|Anaconda37-64" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="data.py" />
+    <Compile Include="main.py" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
   <!-- Uncomment the CoreCompile target to enable the Build command in
