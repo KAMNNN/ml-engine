@@ -8,6 +8,9 @@
 *.user
 *.userosscache
 *.sln.docstates
+./Transfomer_QANet/data/*.json
+./Transfomer_QANet/data/*.pickle
+./Transfomer_QANet/data/*.pkl
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
