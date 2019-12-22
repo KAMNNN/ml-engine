@@ -94,13 +94,13 @@ def _PreProcess():
             quac[k] += v
 
     L1 = _preprocess_squad(squad['data'])
-    L2 = _preprocess_coqa(coqa['data'])
+    #L2 = _preprocess_coqa(coqa['data'])
     #L3 = _preporcess_quac(quac['data'])
 
-    return L1 + L2 #+ L3
+    return L1 #+ L2 #+ L3
 
 def _get_answer_spans(para_text):
-    para_nlp = nlp(para_text)
+    para_nlp = nlp(para_text, disable=["tagger", "ner"])
     sentences = [(x.text, x.start_char) for x in para_nlp.sents]
     entities, entity_dict = [], {}
 
@@ -154,15 +154,15 @@ def _cleanup(context, question, answer, start):
         text = text.replace("''", '" ').replace("``", '" ')
         return text
 
-    context_doc = nlp(clean_text(context))
-    question_doc = nlp(clean_text(question))
-    answer_doc = nlp(clean_text(answer))
+    context_doc = nlp(clean_text(context), disable=["tagger", "ner"])
+    #question_doc = nlp(clean_text(question), disable=["tagger", "ner"])
+    #answer_doc = nlp(clean_text(answer), disable=["tagger", "ner"])
     
     output_context  = defaultdict(list)
     output_question = defaultdict(list)
     output_answer =   defaultdict(list)
 
-    sentences = [str(sents) for sents in context_doc.sents]
+    sentences = [str(sents) for sents in context.split('.')]
     sent_lengths = [len(sentences[0])]
     for i in range(1, len(sentences)):
         sent_lengths.append(len(sentences[i]) + sent_lengths[i-1])
@@ -173,21 +173,21 @@ def _cleanup(context, question, answer, start):
                 else:
                     sent = sentences[0]
 
-    for token in context_doc:
-        output_context['pos'].append(token.pos)
-    for ent in context_doc.ents:  
-        txt = ent.text.split(' ')    
-        output_context['ner'].append(ent.label)
-    for token in question_doc:
-        output_question['pos'].append(token.pos)
-    for ent in question_doc.ents:
-        txt = ent.text.split(' ')
-        output_question['ner'].append(ent.label)
-    for token in answer_doc:
-        output_answer['pos'].append(token.pos)
-    for ent in answer_doc.ents:
-        txt = ent.text.split(' ')
-        output_answer['ner'].append(ent.label)
+    #for token in context_doc:
+    #    output_context['pos'].append(token.pos)
+    #for ent in context_doc.ents:  
+    #    txt = ent.text.split(' ')    
+    #    output_context['ner'].append(ent.label)
+    #for token in question_doc:
+    #    output_question['pos'].append(token.pos)
+    #for ent in question_doc.ents:
+    #    txt = ent.text.split(' ')
+    #    output_question['ner'].append(ent.label)
+    #for token in answer_doc:
+    #    output_answer['pos'].append(token.pos)
+    #for ent in answer_doc.ents:
+    #    txt = ent.text.split(' ')
+    #    output_answer['ner'].append(ent.label)
        
     output_context['text'] =    clean_text(context)
     output_question['text'] =   clean_text(question)
@@ -203,16 +203,16 @@ def _cleanup(context, question, answer, start):
             "answer": output_answer['text'],
            #"sentence":
         },
-        "pos": { 
-            "context": output_context['pos'],
-            "question": output_question['pos'],
-            "answer": output_answer['pos']
-        },
-        "ner": {
-            "context": output_context['ner'],
-            "question": output_question['ner'],
-            "answer": output_answer['ner'],
-                },
+        #"pos": { 
+        #    "context": output_context['pos'],
+        #    "question": output_question['pos'],
+        #    "answer": output_answer['pos']
+        #},
+        #"ner": {
+        #    "context": output_context['ner'],
+        #    "question": output_question['ner'],
+        #    "answer": output_answer['ner'],
+        #        },
         "sentence": sent,
         #"spans": spans,
     }

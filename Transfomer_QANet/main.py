@@ -37,27 +37,27 @@ def train(dataset):
     #target = torch.empty(3, dtype=torch.long).random_(5) #3
     #output = criterion(input, target)
 
-
-    for x,y,m in tqdm(dataset, desc='------ Training ------'):
-        input_tensor = x
-        output_tensor = x
-        model.zero_grad()         
-       
-        for i in range(min(len(y), 16)):           
-            outputs = model(torch.cat([input_tensor, m], 1))
-            input_tensor = outputs.argmax(dim=2)
-            output_tensor = torch.cat([output_tensor, y[:,i].reshape(-1, 1)], 1)            
-            loss = criterion(outputs.transpose(1,2), output_tensor)
-            loss.backward()
-            optimizer.step()
+    for epoch in range(25):
+        for x,y,m in tqdm(dataset, desc='------ Training Epoch:{} ------'.format(epoch)):
+            input_tensor = x
+            output_tensor = x
+            model.zero_grad()         
+        
+            for i in range(min(len(y), 32)):           
+                outputs = model(torch.cat([input_tensor, m], 1))
+                input_tensor = outputs.argmax(dim=2)
+                output_tensor = torch.cat([output_tensor, y[:,i].reshape(-1, 1)], 1)            
+                loss = criterion(outputs.transpose(1,2), output_tensor)
+                loss.backward()
+                optimizer.step()
 
         checkpoint = {
             'model': model,
             'state_dict': model.state_dict(),
             'optimizer' : optimizer.state_dict()
         }            
-    torch.save(checkpoint, "bert_sqg.pt")
-    print()
+        torch.save(checkpoint, "./checkpoint/bert_sqg.pt")
+        print()
 
 def eval(dataset):
     for c,q,a,s in tqdm(dataset, desc='------ Evaluation ------'):
