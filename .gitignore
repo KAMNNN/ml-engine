@@ -11,7 +11,7 @@
 ./Transfomer_QANet/data/*.json
 ./Transfomer_QANet/data/*.pickle
 ./Transfomer_QANet/data/*.pkl
-
+./Transfomer_QANet/checkpoint/*.pt
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 

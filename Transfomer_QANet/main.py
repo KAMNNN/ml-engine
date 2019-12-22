@@ -43,7 +43,7 @@ def train(dataset):
         output_tensor = x
         model.zero_grad()         
        
-        for i in range(5):           
+        for i in range(min(len(y), 16)):           
             outputs = model(torch.cat([input_tensor, m], 1))
             input_tensor = outputs.argmax(dim=2)
             output_tensor = torch.cat([output_tensor, y[:,i].reshape(-1, 1)], 1)            
