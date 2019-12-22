@@ -10,8 +10,6 @@
 *.sln.docstates
 
 ./Transfomer_QANet/data/
-./Transfomer_QANet/data/
-./Transfomer_QANet/data/
 ./Transfomer_QANet/checkpoint/
 
 # User-specific files (MonoDevelop/Xamarin Studio)

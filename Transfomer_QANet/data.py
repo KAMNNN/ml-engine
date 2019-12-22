@@ -34,6 +34,8 @@ QUAC_DEV   = "./data/quac-dev-v0.2.json"
 
 if not os.path.exists('./data'):
     os.makedirs('./data')
+if not os.path.exists('./checkpoint'):
+    os.makedirs('./checkpoint')
 
 def Softmax(x):
     e_x = np.exp(x - np.max(x))
