@@ -235,9 +235,9 @@ def _preprocess_squad(data):
                     answer = qa["answers"][0]
                     orig_answer_text =  answer["text"]
                     start =             answer["answer_start"]                  
-                else:
-                    orig_answer_text = ""   
-                tmp.append((context, question, orig_answer_text, start))
+                #else:
+                    #orig_answer_text = ""   
+                    tmp.append((context, question, orig_answer_text, start))
 
     for context, question, answer, start in tqdm(tmp, desc='PreProcess Squad Cleanup'):
         output.append(_cleanup(context, question, answer, start))
