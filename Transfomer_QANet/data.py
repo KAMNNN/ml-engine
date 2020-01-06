@@ -9,9 +9,14 @@ import spacy
 from tqdm import tqdm
 from collections import defaultdict
 from transformers import *
+from torch.utils.data import Dataset   
 
 #subprocess.call("python -m spacy download en_core_web_lg")
+#python -m spacy download en_core_web_lg
+#python -m spacy download en_core_web_sm
+#subprocess.call("python -m spacy download en")
 nlp = spacy.load("en_core_web_lg")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 TRAIN_SET = { 
     "squad" : "https://rajpurkar.github.io/SQuAD-explorer/dataset/train-v2.0.json",
@@ -24,6 +29,7 @@ DEV_SET = {
     "quac" :  "https://s3.amazonaws.com/my89public/quac/val_v0.2.json"
 }
 
+device = 
 
 SQUAD_TRAIN = "./data/squad-train-v2.0.json"
 SQUAD_DEV   = "./data/squad-dev-v2.0.json"
@@ -55,27 +61,14 @@ if not os.path.exists(QUAC_TRAIN):
 if not os.path.exists(QUAC_DEV):
     urllib.request.urlretrieve(DEV_SET['quac'], QUAC_DEV)
 
-tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
 
-class DataClass: 
+class DataClass(Dataset): 
     def __init__ (self):
         self.data = _PreProcess()       
     def __len__(self):
         return len(self.data)
     def __getitem__(self, idx):
-        t = self.data[idx]     
-        c,q,a,s = t['text']['context'], t['text']['question'], t['text']['answer'], t['sentence']
-
-        input_str = "[CLS]" + s + "[SEP]" + a + "[SEP]" 
-        input_tokens = tokenizer.encode(input_str)
-        mask_tokens = tokenizer.encode("[MASK]")  
-        output_tokens = tokenizer.encode(q[:-1])
-
-        input_tensor = torch.tensor(input_tokens).unsqueeze(0)
-        masks_tokens_tensor = torch.tensor(mask_tokens).unsqueeze(0)
-        output_tensor = torch.tensor(output_tokens).unsqueeze(0)
-        
-        return input_tensor, output_tensor, masks_tokens_tensor
+        pass
 
 def _PreProcess():   
     s = [json.load(open(SQUAD_TRAIN)), json.load(open(SQUAD_DEV))]
@@ -123,6 +116,7 @@ def _get_answer_spans(para_text):
     return entities
 
 def _neural_get_answer_spans(para_text, _processed_spans=[]):
+    tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
     if _processed_spans == []:
         _processed_spans = _get_answer_spans(para_text)
     context_doc = nlp(para_text)
@@ -174,22 +168,6 @@ def _cleanup(context, question, answer, start):
                     break
                 else:
                     sent = sentences[0]
-
-    #for token in context_doc:
-    #    output_context['pos'].append(token.pos)
-    #for ent in context_doc.ents:  
-    #    txt = ent.text.split(' ')    
-    #    output_context['ner'].append(ent.label)
-    #for token in question_doc:
-    #    output_question['pos'].append(token.pos)
-    #for ent in question_doc.ents:
-    #    txt = ent.text.split(' ')
-    #    output_question['ner'].append(ent.label)
-    #for token in answer_doc:
-    #    output_answer['pos'].append(token.pos)
-    #for ent in answer_doc.ents:
-    #    txt = ent.text.split(' ')
-    #    output_answer['ner'].append(ent.label)
        
     output_context['text'] =    clean_text(context)
     output_question['text'] =   clean_text(question)
@@ -203,20 +181,9 @@ def _cleanup(context, question, answer, start):
             "context": output_context['text'],
             "question": output_question['text'],
             "answer": output_answer['text'],
-           #"sentence":
         },
-        #"pos": { 
-        #    "context": output_context['pos'],
-        #    "question": output_question['pos'],
-        #    "answer": output_answer['pos']
-        #},
-        #"ner": {
-        #    "context": output_context['ner'],
-        #    "question": output_question['ner'],
-        #    "answer": output_answer['ner'],
-        #        },
         "sentence": sent,
-        #"spans": spans,
+        
     }
 
     return output
@@ -284,7 +251,26 @@ def _preporcess_quac(data):
         
     return output
 
+
+class BertSQG_DataClass(DataClass):
+    def __init__(self):
+        super(BertSQG_DataClass, self).__init__()
+        self.tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
+    def __getitem__(self, idx):
+        t = self.data[idx]     
+        c,q,a,s = t['text']['context'], t['text']['question'], t['text']['answer'], t['sentence']
+
+        input_str = "[CLS]" + s + "[SEP]" + a + "[SEP]" 
+        input_tokens = self.tokenizer.encode(input_str)
+        mask_tokens = self.tokenizer.encode("[MASK]")  
+        output_tokens = self.tokenizer.encode(q[:-1])
+
+        input_tensor = torch.tensor(input_tokens).unsqueeze(0).to(device)
+        masks_tokens_tensor = torch.tensor(mask_tokens).unsqueeze(0).to(device)
+        output_tensor = torch.tensor(output_tokens).unsqueeze(0).to(device)
         
-data = DataClass
+        return input_tensor, output_tensor, masks_tokens_tensor
 
-
+class Bert_GPT2_DataClass(DataClass):
+    def __init__(self):
+        super(Bert_GPT2_DataClass, self).__init__()

@@ -4,7 +4,7 @@
     <SchemaVersion>2.0</SchemaVersion>
     <ProjectGuid>ec4fa0b9-9caf-4b47-a053-1e68b8ff1be4</ProjectGuid>
     <ProjectHome>.</ProjectHome>
-    <StartupFile>main.py</StartupFile>
+    <StartupFile>bert_sqg.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -27,8 +27,11 @@
     <InterpreterReference Include="Global|ContinuumAnalytics|Anaconda37-64" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="bert_gpt.py">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Include="data.py" />
-    <Compile Include="main.py" />
+    <Compile Include="bert_sqg.py" />
     <Compile Include="model.py">
       <SubType>Code</SubType>
     </Compile>
