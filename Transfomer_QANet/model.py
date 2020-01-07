@@ -8,12 +8,12 @@ tokenizer = BertTokenizer.from_pretrained(BERT_TYPE)
 tokenizer2 = GPT2Tokenizer.from_pretrained(GPT2_TYPE)
 
 class Bert_SQG(nn.Module):
-    def __init__(self):
-        super(Bert_QGen, self).__init__()
-        self.bert = BertModel.from_pretrained(BERT_TYPE)
+    def __init__(self, device=torch.device('cpu')):
+        super(Bert_SQG, self).__init__()
+        self.bert = BertModel.from_pretrained(BERT_TYPE).to(device)
         self.bert.train()
-        self.cls = nn.Linear(self.bert.config.hidden_size, tokenizer.vocab_size)
-        self.bias = torch.zeros(tokenizer.vocab_size)
+        self.cls = nn.Linear(self.bert.config.hidden_size, tokenizer.vocab_size).to(device)
+        self.bias = torch.zeros(tokenizer.vocab_size, device=device)
         self.softmax = nn.Softmax(dim=1)
     def forward(self, x):
         h = self.bert(x)

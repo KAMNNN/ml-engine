@@ -10,6 +10,7 @@ from tqdm import tqdm
 from collections import defaultdict
 from transformers import *
 from torch.utils.data import Dataset   
+from multiprocessing import Pool
 
 #subprocess.call("python -m spacy download en_core_web_lg")
 #python -m spacy download en_core_web_lg
@@ -21,15 +22,13 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 TRAIN_SET = { 
     "squad" : "https://rajpurkar.github.io/SQuAD-explorer/dataset/train-v2.0.json",
     "coqa" :  "https://nlp.stanford.edu/data/coqa/coqa-train-v1.0.json",
-    "quac" :  "https://s3.amazonaws.com/my89public/quac/train_v0.2.json"
+    "quac" :  "https://s3.amazonaws.com/myTHREAD_NUM9public/quac/train_v0.2.json"
 }
 DEV_SET = {
     "squad" : "https://rajpurkar.github.io/SQuAD-explorer/dataset/dev-v2.0.json",
     "coqa" :  "https://nlp.stanford.edu/data/coqa/coqa-dev-v1.0.json",
-    "quac" :  "https://s3.amazonaws.com/my89public/quac/val_v0.2.json"
+    "quac" :  "https://s3.amazonaws.com/myTHREAD_NUM9public/quac/val_v0.2.json"
 }
-
-device = 
 
 SQUAD_TRAIN = "./data/squad-train-v2.0.json"
 SQUAD_DEV   = "./data/squad-dev-v2.0.json"
@@ -37,6 +36,8 @@ COQA_TRAIN = "./data/coqa-train-v1.0.json"
 COQA_DEV   = "./data/coqa-dev-v1.0.json"
 QUAC_TRAIN = "./data/quac-train-v0.2.json"
 QUAC_DEV   = "./data/quac-dev-v0.2.json"
+
+THREAD_NUM = 16
 
 if not os.path.exists('./data'):
     os.makedirs('./data')
@@ -64,7 +65,7 @@ if not os.path.exists(QUAC_DEV):
 
 class DataClass(Dataset): 
     def __init__ (self):
-        self.data = _PreProcess()       
+        self.data = list()       
     def __len__(self):
         return len(self.data)
     def __getitem__(self, idx):
@@ -142,7 +143,9 @@ def _neural_get_answer_spans(para_text, _processed_spans=[]):
                 spans.append((bert_span, sent))     
     return spans
 
-def _cleanup(context, question, answer, start):
+def _cleanup(x):
+    context, question, answer, start = x
+
     def clean_text(text):
         text = text.replace("]", " ] ")
         text = text.replace("[", " [ ")
@@ -189,8 +192,9 @@ def _cleanup(context, question, answer, start):
     return output
 
 def _preprocess_squad(data):   
-    output = list()
     tmp = list()
+    p = Pool(THREAD_NUM)
+
     for entry in tqdm(data, desc='PreProcess Squad'):
         for paragraph in entry["paragraphs"]:
             context = paragraph["context"]
@@ -199,21 +203,19 @@ def _preprocess_squad(data):
                 question = qa["question"]
                 is_impossible = qa["is_impossible"]                    
                 if not is_impossible:
-                    answer = qa["answers"][0]
+                    answer =            qa["answers"][0]
                     orig_answer_text =  answer["text"]
-                    start =             answer["answer_start"]                  
-                #else:
-                    #orig_answer_text = ""   
-                    tmp.append((context, question, orig_answer_text, start))
+                    start =             answer["answer_start"]
+                    if(answer != '' and question != '' and orig_answer_text != ''):
+                        tmp.append((context, question, orig_answer_text, start))
 
-    for context, question, answer, start in tqdm(tmp, desc='PreProcess Squad Cleanup'):
-        output.append(_cleanup(context, question, answer, start))
-        
+    output = list(tqdm(p.imap(_cleanup, tmp), total=len(tmp), desc='squad cleanup'))   
     return output
 
 def _preprocess_coqa(data):
     output = list()
     tmp = list()
+    p = Pool(THREAD_NUM)
     for entry in tqdm(data, desc='PreProcessing Coqa'):
         context = entry['story']
         for q, a in zip(entry['questions'], entry['answers']):
@@ -225,14 +227,14 @@ def _preprocess_coqa(data):
                 answer = context[ a['span_start']:a['span_end']]    
             tmp.append((context, question, answer_text, start))
 
-    for context, question, answer, start in tqdm(tmp, desc='PreProcess Coqa Cleanup'):
-        output.append(_cleanup(context, question, answer, start))
-        
+    output = list(tqdm(p.imap(_cleanup, tmp), total=len(tmp), desc='coqa cleanup'))   
+
     return output
 
 def _preporcess_quac(data):
     output = list()
     tmp = list()
+    p = Pool(THREAD_NUM)
     for entry in tqdm(data, desc='PreProcessing Quac'):
         background = entry['background']
         for paragraph in entry['paragraphs']:
@@ -246,31 +248,44 @@ def _preporcess_quac(data):
                     yesno = qa['yesno']
                     tmp.append((context, question, answer, start))
 
-    for context, question, answer, start in tqdm(tmp, desc='PreProcess Quac Cleanup'):
-        output.append(_cleanup(context, question, answer, start))
+    output = list(tqdm(p.imap(_cleanup, tmp), total=len(tmp), desc='quac cleanup'))   
+
         
     return output
 
 
 class BertSQG_DataClass(DataClass):
-    def __init__(self):
+    def __init__(self):        
         super(BertSQG_DataClass, self).__init__()
         self.tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
-    def __getitem__(self, idx):
-        t = self.data[idx]     
-        c,q,a,s = t['text']['context'], t['text']['question'], t['text']['answer'], t['sentence']
+        data = _PreProcess() 
+        self.training_data = [self.init_helper(x) for x in tqdm(data, total=len(data), desc='Setting up training data')]
 
+    def init_helper(self, d):
+        c,q,a,s = d['text']['context'], d['text']['question'], d['text']['answer'], d['sentence']
         input_str = "[CLS]" + s + "[SEP]" + a + "[SEP]" 
         input_tokens = self.tokenizer.encode(input_str)
         mask_tokens = self.tokenizer.encode("[MASK]")  
-        output_tokens = self.tokenizer.encode(q[:-1])
-
-        input_tensor = torch.tensor(input_tokens).unsqueeze(0).to(device)
-        masks_tokens_tensor = torch.tensor(mask_tokens).unsqueeze(0).to(device)
-        output_tensor = torch.tensor(output_tokens).unsqueeze(0).to(device)
+        output_tokens = self.tokenizer.encode(q)
         
-        return input_tensor, output_tensor, masks_tokens_tensor
+        output = [input_tokens + mask_tokens]
 
+        for i in range(len(output_tokens)):
+            tokens = output[-1]
+            tokens[-1] = output_tokens[i]
+            output.append(tokens + mask_tokens)
+        return output
+    def __len__(self):
+        return len(self.training_data)
+    def __getitem__(self, idx):
+        output = list()
+        self.training_data[idx]
+        for data in self.training_data[idx]:
+            output.append(torch.tensor(data, device=device).unsqueeze(0))
+        return output
+
+        
+        
 class Bert_GPT2_DataClass(DataClass):
     def __init__(self):
         super(Bert_GPT2_DataClass, self).__init__()

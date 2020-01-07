@@ -14,24 +14,21 @@ nlp = spacy.load("en_core_web_lg")
 #python -m spacy download en_core_web_lg
 #python -m spacy download en_core_web_sm
 
-model = BERT_AGEN()
-model = GPT2_QGEN()
 
 def train(dataset):
-    optimizer = AdamW(model.parameters(), lr = 3e-5)
+    model1 = BERT_AGEN()
+    model2 = GPT2_QGEN()
+
+    optimizer = AdamW(model1.parameters(), lr = 3e-5)
     criterion = nn.CrossEntropyLoss()
-    vocab_size = tokenizer.vocab_size
-    lm_labels = torch.LongTensor([0 for i in range(vocab_size)]).unsqueeze(0)
-    padding = tokenizer.encode("[PAD]")
-    
     for epoch in range(25):
         for x,y,m in tqdm(dataset, desc='------ Training Epoch:{} ------'.format(epoch)):
             input_tensor = x
             output_tensor = x
-            model.zero_grad()         
+            model1.zero_grad()         
         
             for i in range(min(len(y), 32)):           
-                outputs = model(torch.cat([input_tensor, m], 1))
+                outputs = model1(torch.cat([input_tensor, m], 1))
                 input_tensor = outputs.argmax(dim=2)
                 output_tensor = torch.cat([output_tensor, y[:,i].reshape(-1, 1)], 1)            
                 loss = criterion(outputs.transpose(1,2), output_tensor)
@@ -39,8 +36,8 @@ def train(dataset):
                 optimizer.step()
 
         checkpoint = {
-            'model': model,
-            'state_dict': model.state_dict(),
+            'model': model1,
+            'state_dict': model1.state_dict(),
             'optimizer' : optimizer.state_dict()
         }            
         torch.save(checkpoint, "./checkpoint/bert_sqg.pt")

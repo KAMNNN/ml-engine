@@ -6,11 +6,12 @@
     "configurations": [
 
         {
-            "name": "Python: main.py",
+            "name": "Python: bert_sqg.py",
             "type": "python",
             "request": "launch",
             "program": "${file}",
-            "console": "integratedTerminal"
+            "console": "integratedTerminal",
+            "module": "bert_sqg"
         }
     ]
 }
