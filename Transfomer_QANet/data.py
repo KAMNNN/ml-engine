@@ -22,12 +22,12 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 TRAIN_SET = { 
     "squad" : "https://rajpurkar.github.io/SQuAD-explorer/dataset/train-v2.0.json",
     "coqa" :  "https://nlp.stanford.edu/data/coqa/coqa-train-v1.0.json",
-    "quac" :  "https://s3.amazonaws.com/myTHREAD_NUM9public/quac/train_v0.2.json"
+    "quac" :  "https://s3.amazonaws.com/my89public/quac/train_v0.2.json"
 }
 DEV_SET = {
     "squad" : "https://rajpurkar.github.io/SQuAD-explorer/dataset/dev-v2.0.json",
     "coqa" :  "https://nlp.stanford.edu/data/coqa/coqa-dev-v1.0.json",
-    "quac" :  "https://s3.amazonaws.com/myTHREAD_NUM9public/quac/val_v0.2.json"
+    "quac" :  "https://s3.amazonaws.com/my89public/quac/val_v0.2.json"
 }
 
 SQUAD_TRAIN = "./data/squad-train-v2.0.json"
@@ -266,22 +266,20 @@ class BertSQG_DataClass(DataClass):
         input_str = "[CLS]" + s + "[SEP]" + a + "[SEP]" 
         input_tokens = self.tokenizer.encode(input_str)
         mask_tokens = self.tokenizer.encode("[MASK]")  
-        output_tokens = self.tokenizer.encode(q)
-        
+        output_tokens = self.tokenizer.encode(q)        
         output = [input_tokens + mask_tokens]
-
         for i in range(len(output_tokens)):
             tokens = output[-1]
             tokens[-1] = output_tokens[i]
-            output.append(tokens + mask_tokens)
+            output.append(tokens+mask_tokens)
         return output
+
     def __len__(self):
         return len(self.training_data)
     def __getitem__(self, idx):
         output = list()
-        self.training_data[idx]
-        for data in self.training_data[idx]:
-            output.append(torch.tensor(data, device=device).unsqueeze(0))
+        for x in self.training_data[idx]:
+            output.append(torch.tensor(x))
         return output
 
         

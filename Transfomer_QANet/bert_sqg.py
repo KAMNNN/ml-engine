@@ -19,15 +19,19 @@ def train(dataset):
     vocab_size = tokenizer.vocab_size
     #lm_labels = torch.LongTensor([0 for i in range(vocab_size)]).unsqueeze(0).to(device)
     for epoch in range(25):
-        for IO in tqdm(dataset, desc='------ Training Epoch:{} ------'.format(epoch)):
-            for i in range(0, len(IO)-1):
-                model.zero_grad()
-                outputs = model(IO[i])
-                tmp = IO[i+1][:, :-1]
-                loss = criterion(outputs.transpose(2, 1), tmp)
-                loss.backward()
-                optimizer.step()
-
+        with tqdm(total=len(dataset), desc='------ Training Epoch:{} ------'.format(epoch)) as t:
+            for _id, IO in enumerate(dataset):
+                for i in range(0, len(IO)-1):
+                    ipt = IO[i].to(device)
+                    outputs = model(ipt)
+                    tmp = IO[i+1][:, :-1].to(device)
+                    tmp2 = outputs.transpose(2,1)
+                    loss = criterion(tmp2, tmp)
+                    optimizer.zero_grad()
+                    loss.backward()
+                    optimizer.step()
+                t.set_postfix(loss='{:05.3f}'.format(loss.item()))
+                t.update()
         checkpoint = {
             'model': model,
             'state_dict': model.state_dict(),
@@ -39,7 +43,8 @@ def train(dataset):
 
 def main():
     ds = data.BertSQG_DataClass()
-    train(ds)
+    dl = DataLoader(ds, num_workers=4)
+    train(dl)
 
 
 if __name__ == "__main__":
