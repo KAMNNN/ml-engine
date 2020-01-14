@@ -16,6 +16,7 @@ from multiprocessing import Pool
 #python -m spacy download en_core_web_lg
 #python -m spacy download en_core_web_sm
 #subprocess.call("python -m spacy download en")
+
 nlp = spacy.load("en_core_web_lg")
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -37,7 +38,7 @@ COQA_DEV   = "./data/coqa-dev-v1.0.json"
 QUAC_TRAIN = "./data/quac-train-v0.2.json"
 QUAC_DEV   = "./data/quac-dev-v0.2.json"
 
-THREAD_NUM = 16
+THREAD_NUM = 4
 
 if not os.path.exists('./data'):
     os.makedirs('./data')
@@ -194,7 +195,7 @@ def _cleanup(x):
 def _preprocess_squad(data):   
     tmp = list()
     p = Pool(THREAD_NUM)
-
+    count = 0
     for entry in tqdm(data, desc='PreProcess Squad'):
         for paragraph in entry["paragraphs"]:
             context = paragraph["context"]
@@ -206,8 +207,12 @@ def _preprocess_squad(data):
                     answer =            qa["answers"][0]
                     orig_answer_text =  answer["text"]
                     start =             answer["answer_start"]
+                    if(count >= 8):
+                        break
                     if(answer != '' and question != '' and orig_answer_text != ''):
                         tmp.append((context, question, orig_answer_text, start))
+                        count += 1
+                    
 
     output = list(tqdm(p.imap(_cleanup, tmp), total=len(tmp), desc='squad cleanup'))   
     return output
@@ -248,19 +253,18 @@ def _preporcess_quac(data):
                     yesno = qa['yesno']
                     tmp.append((context, question, answer, start))
 
-    output = list(tqdm(p.imap(_cleanup, tmp), total=len(tmp), desc='quac cleanup'))   
-
-        
+    output = list(tqdm(p.imap(_cleanup, tmp), total=len(tmp), desc='quac cleanup'))
     return output
 
 
 class BertSQG_DataClass(DataClass):
-    def __init__(self):        
+    def __init__(self, max_size=512):        
         super(BertSQG_DataClass, self).__init__()
         self.tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
         data = _PreProcess() 
+        self.empty_list = [0 for _ in range(max_size)]
         self.training_data = [self.init_helper(x) for x in tqdm(data, total=len(data), desc='Setting up training data')]
-
+        
     def init_helper(self, d):
         c,q,a,s = d['text']['context'], d['text']['question'], d['text']['answer'], d['sentence']
         input_str = "[CLS]" + s + "[SEP]" + a + "[SEP]" 
@@ -279,7 +283,10 @@ class BertSQG_DataClass(DataClass):
     def __getitem__(self, idx):
         output = list()
         for x in self.training_data[idx]:
-            output.append(torch.tensor(x))
+            tensor = torch.tensor(self.empty_list)
+            for i in range(len(x)):
+                tensor[i] = x[i]
+            output.append(tensor)
         return output
 
         

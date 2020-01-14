@@ -24,7 +24,7 @@ def train(dataset):
                 for i in range(0, len(IO)-1):
                     ipt = IO[i].to(device)
                     outputs = model(ipt)
-                    tmp = IO[i+1][:, :-1].to(device)
+                    tmp = IO[i+1].to(device)
                     tmp2 = outputs.transpose(2,1)
                     loss = criterion(tmp2, tmp)
                     optimizer.zero_grad()
@@ -43,7 +43,7 @@ def train(dataset):
 
 def main():
     ds = data.BertSQG_DataClass()
-    dl = DataLoader(ds, num_workers=4)
+    dl = DataLoader(ds, num_workers=4, batch_size=2)
     train(dl)
 
 
