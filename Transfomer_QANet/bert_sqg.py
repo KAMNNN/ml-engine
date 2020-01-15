@@ -14,10 +14,15 @@ device = data.device
 
 def train(dataset):
     model = Bert_SQG(device)
+    if torch.cuda.device_count() > 1:
+        print("Let's use", torch.cuda.device_count(), "GPUs!")
+        model = nn.DataParallel(model)
+        
+    model.to(device)
     optimizer = AdamW(model.parameters(), lr=3e-5)
     criterion = nn.CrossEntropyLoss()
     vocab_size = tokenizer.vocab_size
-    #lm_labels = torch.LongTensor([0 for i in range(vocab_size)]).unsqueeze(0).to(device)
+    
     for epoch in range(25):
         with tqdm(total=len(dataset), desc='------ Training Epoch:{} ------'.format(epoch)) as t:
             for _id, IO in enumerate(dataset):
@@ -43,7 +48,7 @@ def train(dataset):
 
 def main():
     ds = data.BertSQG_DataClass()
-    dl = DataLoader(ds, num_workers=4, batch_size=2)
+    dl = DataLoader(ds, num_workers=4, batch_size=8)
     train(dl)
 
 

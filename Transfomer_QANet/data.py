@@ -18,7 +18,7 @@ from multiprocessing import Pool
 #subprocess.call("python -m spacy download en")
 
 nlp = spacy.load("en_core_web_lg")
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 TRAIN_SET = { 
     "squad" : "https://rajpurkar.github.io/SQuAD-explorer/dataset/train-v2.0.json",
@@ -262,7 +262,7 @@ class BertSQG_DataClass(DataClass):
         super(BertSQG_DataClass, self).__init__()
         self.tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
         data = _PreProcess() 
-        self.empty_list = [0 for _ in range(max_size)]
+        self.max_size = max_size
         self.training_data = [self.init_helper(x) for x in tqdm(data, total=len(data), desc='Setting up training data')]
         
     def init_helper(self, d):
@@ -283,7 +283,7 @@ class BertSQG_DataClass(DataClass):
     def __getitem__(self, idx):
         output = list()
         for x in self.training_data[idx]:
-            tensor = torch.tensor(self.empty_list)
+            tensor = torch.zeros(self.max_size)
             for i in range(len(x)):
                 tensor[i] = x[i]
             output.append(tensor)
