@@ -11,6 +11,7 @@ from collections import defaultdict
 from transformers import *
 from torch.utils.data import Dataset   
 from multiprocessing import Pool
+import multiprocessing as mp
 
 #subprocess.call("python -m spacy download en_core_web_lg")
 #python -m spacy download en_core_web_lg
@@ -38,7 +39,7 @@ COQA_DEV   = "./data/coqa-dev-v1.0.json"
 QUAC_TRAIN = "./data/quac-train-v0.2.json"
 QUAC_DEV   = "./data/quac-dev-v0.2.json"
 
-THREAD_NUM = 4
+THREAD_NUM = mp.cpu_count() // 2
 
 if not os.path.exists('./data'):
     os.makedirs('./data')
@@ -155,9 +156,7 @@ def _cleanup(x):
         return text
 
     context_doc = nlp(clean_text(context), disable=["tagger", "ner"])
-    #question_doc = nlp(clean_text(question), disable=["tagger", "ner"])
-    #answer_doc = nlp(clean_text(answer), disable=["tagger", "ner"])
-    
+   
     output_context  = defaultdict(list)
     output_question = defaultdict(list)
     output_answer =   defaultdict(list)
@@ -195,7 +194,6 @@ def _cleanup(x):
 def _preprocess_squad(data):   
     tmp = list()
     p = Pool(THREAD_NUM)
-    count = 0
     for entry in tqdm(data, desc='PreProcess Squad'):
         for paragraph in entry["paragraphs"]:
             context = paragraph["context"]
@@ -207,11 +205,8 @@ def _preprocess_squad(data):
                     answer =            qa["answers"][0]
                     orig_answer_text =  answer["text"]
                     start =             answer["answer_start"]
-                    if(count >= 8):
-                        break
                     if(answer != '' and question != '' and orig_answer_text != ''):
                         tmp.append((context, question, orig_answer_text, start))
-                        count += 1
                     
 
     output = list(tqdm(p.imap(_cleanup, tmp), total=len(tmp), desc='squad cleanup'))   
@@ -283,7 +278,7 @@ class BertSQG_DataClass(DataClass):
     def __getitem__(self, idx):
         output = list()
         for x in self.training_data[idx]:
-            tensor = torch.zeros(self.max_size)
+            tensor = torch.zeros(self.max_size, dtype=torch.long)
             for i in range(len(x)):
                 tensor[i] = x[i]
             output.append(tensor)
@@ -294,3 +289,16 @@ class BertSQG_DataClass(DataClass):
 class Bert_GPT2_DataClass(DataClass):
     def __init__(self):
         super(Bert_GPT2_DataClass, self).__init__()
+        self.tokenizer1 = BertTokenizer.from_pretrained("bert-base-uncased")
+        self.tokenizer2 = GPT2Tokenizer.from_pretrained("gpt2")
+        data = _PreProcess()
+        self.training_data = [self.init_helper(x) for x in tqdm(data, total=len(data), desc='Setting up training data')]
+    
+    def init_helper(self, d):
+        pass
+
+    def __len__(self):
+        return len(self.training_data)
+    def __getitem__(self, idx):
+        raw_data = self.training_data[idx]
+        

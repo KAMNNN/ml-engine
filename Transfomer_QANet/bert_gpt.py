@@ -14,37 +14,51 @@ nlp = spacy.load("en_core_web_lg")
 #python -m spacy download en_core_web_lg
 #python -m spacy download en_core_web_sm
 
+device = torch.device("cuda:1" if torch.cuda.device_count() > 1 else "cpu")
 
 def train(dataset):
-    model1 = BERT_AGEN()
-    model2 = GPT2_QGEN()
+    model1 = BERT_AGEN().to(device)
+    model2 = GPT2_QGEN().to(device)
 
-    optimizer = AdamW(model1.parameters(), lr = 3e-5)
-    criterion = nn.CrossEntropyLoss()
+    optimizer1 = AdamW(model1.parameters(), lr = 3e-5)
+    optimizer2 = AdamW(model2.parameters(), lr = 3e-5)
+    criterion1 = nn.CrossEntropyLoss()
+    criterion2 = nn.CrossEntropyLoss()
+
+
     for epoch in range(25):
         for x,y,m in tqdm(dataset, desc='------ Training Epoch:{} ------'.format(epoch)):
             input_tensor = x
             output_tensor = x
-            model1.zero_grad()         
+            
+            question_Generated = model1()
+            
         
-            for i in range(min(len(y), 32)):           
-                outputs = model1(torch.cat([input_tensor, m], 1))
-                input_tensor = outputs.argmax(dim=2)
-                output_tensor = torch.cat([output_tensor, y[:,i].reshape(-1, 1)], 1)            
-                loss = criterion(outputs.transpose(1,2), output_tensor)
-                loss.backward()
-                optimizer.step()
+
+            answer_Generated = model2(question_Generated)
+            
+            
+            optimizer1.zero_grad()        
+            optimizer2.zero_grad()      
 
         checkpoint = {
             'model': model1,
             'state_dict': model1.state_dict(),
             'optimizer' : optimizer.state_dict()
         }            
-        torch.save(checkpoint, "./checkpoint/bert_sqg.pt")
+        torch.save(checkpoint, "./checkpoint/bert_ag.pt")
+        checkpoint = {
+            'model': model2,
+            'state_dict': model2.state_dict(),
+            'optimizer' : optimizer.state_dict()
+        }            
+        torch.save(checkpoint, "./checkpoint/bert_ag.pt")
+
         print()
 
 def main():
     ds = data.data()
+    dl = DataLoader(ds, num_workers=4, batch_sampler=2)
     train(ds)
     
 if __name__ == "__main__":

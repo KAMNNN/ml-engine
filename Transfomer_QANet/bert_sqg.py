@@ -11,14 +11,9 @@ import data
 
 device = data.device
 
-
 def train(dataset):
-    model = Bert_SQG(device)
-    if torch.cuda.device_count() > 1:
-        print("Let's use", torch.cuda.device_count(), "GPUs!")
-        model = nn.DataParallel(model)
-        
-    model.to(device)
+    model = Bert_SQG()
+    model = model.to(device) 
     optimizer = AdamW(model.parameters(), lr=3e-5)
     criterion = nn.CrossEntropyLoss()
     vocab_size = tokenizer.vocab_size
@@ -32,6 +27,8 @@ def train(dataset):
                     tmp = IO[i+1].to(device)
                     tmp2 = outputs.transpose(2,1)
                     loss = criterion(tmp2, tmp)
+                    if(torch.cuda.device_count() > 1):
+                        loss = loss.mean()
                     optimizer.zero_grad()
                     loss.backward()
                     optimizer.step()
@@ -48,7 +45,7 @@ def train(dataset):
 
 def main():
     ds = data.BertSQG_DataClass()
-    dl = DataLoader(ds, num_workers=4, batch_size=8)
+    dl = DataLoader(ds, num_workers=4, batch_size=4)
     train(dl)
 
 
