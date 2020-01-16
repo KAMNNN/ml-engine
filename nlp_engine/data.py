@@ -18,9 +18,9 @@ import multiprocessing as mp
 #python -m spacy download en_core_web_sm
 #subprocess.call("python -m spacy download en")
 
-nlp = spacy.load("en_core_web_lg")
+nlp = spacy.load("en")
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-
+WORD2VEC_URL = "http://dumps.wikimedia.org/enwiki/latest/enwiki-latest-pages-articles.xml.bz2"
 TRAIN_SET = { 
     "squad" : "https://rajpurkar.github.io/SQuAD-explorer/dataset/train-v2.0.json",
     "coqa" :  "https://nlp.stanford.edu/data/coqa/coqa-train-v1.0.json",
@@ -32,6 +32,7 @@ DEV_SET = {
     "quac" :  "https://s3.amazonaws.com/my89public/quac/val_v0.2.json"
 }
 
+WORD2VEC_DATA = "./data/enwiki-latest-pages-articles.xml.bz2"
 SQUAD_TRAIN = "./data/squad-train-v2.0.json"
 SQUAD_DEV   = "./data/squad-dev-v2.0.json"
 COQA_TRAIN = "./data/coqa-train-v1.0.json"
@@ -50,7 +51,10 @@ def Softmax(x):
     e_x = np.exp(x - np.max(x))
     return e_x / e_x.sum()
 
-
+if not os.path.exists(WORD2VEC_DATA):
+    urllib.request.urlretrieve(WORD2VEC_URL, WORD2VEC_DATA)
+if not os.path.exists(SQUAD_TRAIN):
+    urllib.request.urlretrieve(TRAIN_SET['squad'], SQUAD_TRAIN) 
 if not os.path.exists(SQUAD_TRAIN):
     urllib.request.urlretrieve(TRAIN_SET['squad'], SQUAD_TRAIN) 
 if not os.path.exists(SQUAD_DEV):

@@ -9,8 +9,8 @@
 *.userosscache
 *.sln.docstates
 
-./Transfomer_QANet/data/
-./Transfomer_QANet/checkpoint/
+./nlp_engine/data/*
+./nlp_engine/checkpoint/*
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
@@ -331,3 +331,5 @@ ASALocalRun/
 
 # MFractors (Xamarin productivity tool) working folder 
 .mfractor/
+nlp_engine/data/enwiki-latest-pages-articles.xml.bz2
+nlp_engine/data/enwiki-latest-pages-articles.xml.bz2.part
