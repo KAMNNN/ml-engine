@@ -1,9 +1,9 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 16
-VisualStudioVersion = 16.0.29102.190
+VisualStudioVersion = 16.0.29424.173
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{888888A0-9F3D-457C-B088-3A5042F75D52}") = "nlp_engine", "Transfomer_QANet\nlp_engine.pyproj", "{EC4FA0B9-9CAF-4B47-A053-1E68B8FF1BE4}"
+Project("{888888A0-9F3D-457C-B088-3A5042F75D52}") = "nlp_engine", "nlp_engine\nlp_engine.pyproj", "{EC4FA0B9-9CAF-4B47-A053-1E68B8FF1BE4}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -18,6 +18,6 @@ Global
 		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
-		SolutionGuid = {C73B2E77-5624-4C68-BE78-13C8E8BB926D}
+		SolutionGuid = {FD3B0FF2-1C29-4806-804B-FFCF06484209}
 	EndGlobalSection
 EndGlobal
