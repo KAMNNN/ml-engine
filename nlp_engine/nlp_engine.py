@@ -2,12 +2,9 @@ import torch
 import spacy
 import neuralcoref
 from transformers import *
-from gensim.models import Word2Vec
 from gensim.parsing.porter import PorterStemmer
 import data
 
-#model = Word2Vec.load(data.WORD2VEC_DATA)
-stemmer = PorterStemmer()
 
 nlp = spacy.load("en")
 neuralcoref.add_to_pipe(nlp)
@@ -17,10 +14,12 @@ class nlp_engine:
         self.tokenizer   = BertTokenizer.from_pretrained("bert-base-uncased")
         self.model       = BertModel.from_pretrained("bert-base-uncased")
         self.use_coref = False
+        self.vectorizer = data.vectorize()
+        self.stemmer = PorterStemmer()
 
     def make_multiple_choice(self, word, sentence, ai=False):
         if(word in sentence):
-            choices = [x[0] for x in model.most_similar(stemmer.stem(word))[:3]]
+            choices = [x[0] for x in self.vectorizer.most_similar(self.stemmer.stem(word))[:3]]
             choices.append(word)
             return { "type":'mc', "question": sentence.replace(word, '______'), "answer": choices }
         else:
@@ -68,6 +67,9 @@ class nlp_engine:
         for w,sents in sa_pairs.items():
             for s in sents:
                 o = self.fill_in_blank(w,s)
+                if(o != None):
+                    qa_pairs.append(o)
+                o = self.make_multiple_choice(w, s, False)
                 if(o != None):
                     qa_pairs.append(o)
             

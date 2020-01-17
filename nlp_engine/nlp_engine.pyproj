@@ -12,7 +12,7 @@
     <OutputPath>.</OutputPath>
     <Name>nlp_engine</Name>
     <RootNamespace>Transfomer_QANet</RootNamespace>
-    <InterpreterId>Global|ContinuumAnalytics|Anaconda37-64</InterpreterId>
+    <InterpreterId>CondaEnv|CondaEnv|kamn</InterpreterId>
     <SuppressPackageInstallationPrompt>True</SuppressPackageInstallationPrompt>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
@@ -24,8 +24,7 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
-    <InterpreterReference Include="CondaEnv|CondaEnv|Anaconda3" />
-    <InterpreterReference Include="Global|ContinuumAnalytics|Anaconda37-64" />
+    <InterpreterReference Include="CondaEnv|CondaEnv|kamn" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="bert_gpt.py">
@@ -37,6 +36,9 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="nlp_engine.py" />
+  </ItemGroup>
+  <ItemGroup>
+    <Content Include="requirements.txt" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
   <!-- Uncomment the CoreCompile target to enable the Build command in

@@ -1,4 +1,5 @@
 import os
+import six
 import json
 import torch
 import urllib.request
@@ -12,6 +13,12 @@ from transformers import *
 from torch.utils.data import Dataset   
 from multiprocessing import Pool
 import multiprocessing as mp
+
+from gensim.corpora import WikiCorpus
+from gensim.models import Word2Vec
+from gensim.models.word2vec import LineSentence
+
+
 
 #subprocess.call("python -m spacy download en_core_web_lg")
 #python -m spacy download en_core_web_lg
@@ -32,7 +39,10 @@ DEV_SET = {
     "quac" :  "https://s3.amazonaws.com/my89public/quac/val_v0.2.json"
 }
 
-WORD2VEC_DATA = "./data/enwiki-latest-pages-articles.xml.bz2"
+WORD2VEC_DATA = "./data/wiki/enwiki-latest-pages-articles.xml.bz2"
+WORD2VEC_EXTRACT_DATA = "./data/wiki/wiki.en.text"
+WORD2VEC_MODEL = "./data/wiki/wiki.en.word2vec.model"
+
 SQUAD_TRAIN = "./data/squad-train-v2.0.json"
 SQUAD_DEV   = "./data/squad-dev-v2.0.json"
 COQA_TRAIN = "./data/coqa-train-v1.0.json"
@@ -44,8 +54,27 @@ THREAD_NUM = mp.cpu_count() // 2
 
 if not os.path.exists('./data'):
     os.makedirs('./data')
+    if not os.path.exists('./data/wiki'):
+        os.makedirs('./data/wiki')
 if not os.path.exists('./checkpoint'):
     os.makedirs('./checkpoint')
+
+def vectorize():
+    if not os.path.exists(WORD2VEC_EXTRACT_DATA):
+        output = open(WORD2VEC_EXTRACT_DATA, 'w', encoding='utf8')
+        wiki = WikiCorpus(WORD2VEC_DATA, lemmatize=False, dictionary={})        
+        for text in wiki.get_texts():
+            txt = ' '.join(text) + '\n'
+            output.write(txt)
+        output.close()
+
+    if not os.path.exists(WORD2VEC_MODEL):
+        model = Word2Vec(LineSentence(WORD2VEC_EXTRACT_DATA), size=400, window=5, min_count=5, workers=mp.cpu_count()//2)
+        model.init_sims(replace=True)
+        model.save(WORD2VEC_MODEL)
+        return model
+    else:
+        return Word2Vec.load(WORD2VEC_MODEL)
 
 def Softmax(x):
     e_x = np.exp(x - np.max(x))

@@ -11,6 +11,8 @@
 
 ./nlp_engine/data/*
 ./nlp_engine/checkpoint/*
+nlp_engine/data/*
+nlp_engine/checkpoint/*
 
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
