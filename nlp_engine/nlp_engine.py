@@ -19,7 +19,7 @@ class nlp_engine:
 
     def make_multiple_choice(self, word, sentence, ai=False):
         if(word in sentence):
-            choices = [x[0] for x in self.vectorizer.most_similar(self.stemmer.stem(word))[:3]]
+            choices = [x[0] for x in self.vectorizer.most_similar(word)[:3]]
             choices.append(word)
             return { "type":'mc', "question": sentence.replace(word, '______'), "answer": choices }
         else:
