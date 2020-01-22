@@ -1,3 +1,6 @@
 [submodule "neuralcoref"]
 	path = neuralcoref
 	url = https://github.com/huggingface/neuralcoref.git
+[submodule "external/neuralcoref"]
+	path = external/neuralcoref
+	url = https://github.com/huggingface/neuralcoref.git
