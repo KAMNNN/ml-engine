@@ -14,16 +14,12 @@ from torch.utils.data import Dataset
 from multiprocessing import Pool
 import multiprocessing as mp
 
+
 from gensim.corpora import WikiCorpus
+from gensim.models import KeyedVectors
+from gensim.scripts.glove2word2vec import glove2word2vec
 from gensim.models import Word2Vec
 from gensim.models.word2vec import LineSentence
-
-
-
-#subprocess.call("python -m spacy download en_core_web_lg")
-#python -m spacy download en_core_web_lg
-#python -m spacy download en_core_web_sm
-#subprocess.call("python -m spacy download en")
 
 nlp = spacy.load("en")
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -38,6 +34,10 @@ DEV_SET = {
     "coqa" :  "https://nlp.stanford.edu/data/coqa/coqa-dev-v1.0.json",
     "quac" :  "https://s3.amazonaws.com/my89public/quac/val_v0.2.json"
 }
+
+GLOVE_URL = "http://nlp.stanford.edu/data/glove.840B.300d.zip"
+GLOVE_DATA = './data/glove.840B.300d.txt'
+GLOVE_VEC = './data/word2vec-glove.840B.300d.txt'
 
 WORD2VEC_DATA = "./data/enwiki-latest-pages-articles.xml.bz2"
 WORD2VEC_EXTRACT_DATA = "./data/wiki.en.text"
@@ -60,21 +60,29 @@ if not os.path.exists('./checkpoint'):
     os.makedirs('./checkpoint')
 
 def vectorize():
-    if not os.path.exists(WORD2VEC_EXTRACT_DATA):
-        output = open(WORD2VEC_EXTRACT_DATA, 'w', encoding='utf8')
-        wiki = WikiCorpus(WORD2VEC_DATA, lemmatize=False, dictionary={})        
-        for text in wiki.get_texts():
-            txt = ' '.join(text) + '\n'
-            output.write(txt)
-        output.close()
-
-    if not os.path.exists(WORD2VEC_MODEL):
-        model = Word2Vec(LineSentence(WORD2VEC_EXTRACT_DATA), size=400, window=5, min_count=5, workers=mp.cpu_count()//2)
-        model.init_sims(replace=True)
-        model.save(WORD2VEC_MODEL)
-        return model
+   if(not wikipedia):
+        if not os.path.exists('./data/glove_word_vec.kv'):
+            glove2word2vec(GLOVE_DATA, GLOVE_VEC)
+            model = KeyedVectors.load_word2vec_format(GLOVE_VEC)
+            word_vectors = model.wv
+            word_vectors.save('./data/glove_word_vec.kv')
+            return word_vectors
+        else:
+            return KeyedVectors.load("./data/glove_word_vec.kv", mmap='r')
     else:
-        return Word2Vec.load(WORD2VEC_MODEL)
+        if not os.path.exists('./data/wiki_word_vec.kv'):
+            wiki = WikiCorpus(WIKI_DATA, lemmatize=False, dictionary={})
+            sentences = wiki.get_texts()
+            params = {'size': 300, 'window': 10, 'min_count': 10, 'workers': max(1, mp.cpu_count() - 1), 'sample': 1E-3,}
+            model = Word2Vec(**params)
+            model.build_vocab(sentences, progress_per=10000)
+            model.train(sentences, max_epoch=30)
+            word_vectors = model.wv
+            word_vectors.save('./data/wiki_word_vec.kv')
+            return word_vectors
+        else:
+            return KeyedVectors.load('./data/wiki_word_vec.kv', mmap='r')           
+
 
 def Softmax(x):
     e_x = np.exp(x - np.max(x))
@@ -101,7 +109,6 @@ if not os.path.exists(QUAC_DEV):
 class DataClass(Dataset): 
     def __init__ (self):
         self.contexts, self.questions, self.answers = _PreProcess(True, False, False)
-
     def __len__(self):
         return len(self.answers)
     def __getitem__(self, idx):
