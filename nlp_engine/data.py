@@ -7,6 +7,7 @@ import numpy as np
 import torch.nn as nn
 import subprocess
 import spacy
+import zipfile
 from tqdm import tqdm
 from collections import defaultdict
 from transformers import *
@@ -23,7 +24,6 @@ from gensim.models.word2vec import LineSentence
 
 nlp = spacy.load("en")
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-WORD2VEC_URL = "http://dumps.wikimedia.org/enwiki/latest/enwiki-latest-pages-articles.xml.bz2"
 TRAIN_SET = { 
     "squad" : "https://rajpurkar.github.io/SQuAD-explorer/dataset/train-v2.0.json",
     "coqa" :  "https://nlp.stanford.edu/data/coqa/coqa-train-v1.0.json",
@@ -39,6 +39,7 @@ GLOVE_URL = "http://nlp.stanford.edu/data/glove.840B.300d.zip"
 GLOVE_DATA = './data/glove.840B.300d.txt'
 GLOVE_VEC = './data/word2vec-glove.840B.300d.txt'
 
+WORD2VEC_URL = "http://dumps.wikimedia.org/enwiki/latest/enwiki-latest-pages-articles.xml.bz2"
 WORD2VEC_DATA = "./data/enwiki-latest-pages-articles.xml.bz2"
 WORD2VEC_EXTRACT_DATA = "./data/wiki.en.text"
 WORD2VEC_MODEL = "./data/wiki.en.word2vec.model"
@@ -59,8 +60,8 @@ if not os.path.exists('./data'):
 if not os.path.exists('./checkpoint'):
     os.makedirs('./checkpoint')
 
-def vectorize():
-   if(not wikipedia):
+def vectorize(wikipedia=False):
+    if(not wikipedia):
         if not os.path.exists('./data/glove_word_vec.kv'):
             glove2word2vec(GLOVE_DATA, GLOVE_VEC)
             model = KeyedVectors.load_word2vec_format(GLOVE_VEC)
@@ -83,11 +84,15 @@ def vectorize():
         else:
             return KeyedVectors.load('./data/wiki_word_vec.kv', mmap='r')           
 
-
 def Softmax(x):
     e_x = np.exp(x - np.max(x))
     return e_x / e_x.sum()
 
+if not os.path.exists(GLOVE_DATA):
+    urllib.request.urlretrieve(GLOVE_URL, './data/glove.840B.300d.zip')
+    with zipfile.ZipFile('./data/glove.840B.300d.zip', 'r') as zip_ref:
+        zip_ref.extractall('./data/')
+    os.remove('./data/glove.840B.300d.zip')
 if not os.path.exists(WORD2VEC_DATA):
     urllib.request.urlretrieve(WORD2VEC_URL, WORD2VEC_DATA)
 if not os.path.exists(SQUAD_TRAIN):
