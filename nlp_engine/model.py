@@ -13,7 +13,7 @@ class Bert_SQG(nn.Module):
         self.bert = BertModel.from_pretrained(BERT_TYPE)
         self.bert.train()
         self.cls = nn.Linear(self.bert.config.hidden_size, tokenizer.vocab_size)
-        self.bias = torch.zeros(tokenizer.vocab_size).cuda()
+        self.bias = torch.zeros(tokenizer.vocab_size)
         self.softmax = nn.Softmax(dim=1)
         #if(torch.cuda.device_count() > 1):
         #    self.bert = nn.DataParallel(self.bert)

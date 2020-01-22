@@ -178,7 +178,7 @@ def _PreProcess(squad=True, coqa=True, quac=True):
                         followup = qa['followup']
                         yesno = qa['yesno']
                         ans.append([a['answer'], a['answer_start'], context, question])
-    return (ctx, ques, ans)
+    return (ctx, que, ans)
 
 def _get_answer_spans(para_text):
     para_nlp = nlp(para_text, disable=["tagger", "ner"])
@@ -235,8 +235,7 @@ class BertSQG_DataClass(DataClass):
         self.max_size = max_size
         
     
-    def _setup(self, x):
-        context, question, answer, start = x
+    def _setup(self, context, question, answer, start):
         def clean_text(text):
             text = text.replace("]", " ] ")
             text = text.replace("[", " [ ")
@@ -263,7 +262,7 @@ class BertSQG_DataClass(DataClass):
         return clean_text(context),  clean_text(question), clean_text(answer), sent
 
     def __len__(self):
-        return len(self.training_data)
+        return len(self.answers)
 
     def __getitem__(self, idx):
         answer, start, context, question = self.answers[idx]
@@ -274,7 +273,7 @@ class BertSQG_DataClass(DataClass):
         output_tokens = self.tokenizer.encode(q)        
         div_tokens = [input_tokens + mask_tokens]
         for i in range(len(output_tokens)):
-            tokens = output[-1]
+            tokens = div_tokens[-1]
             tokens[-1] = output_tokens[i]
             div_tokens.append(tokens+mask_tokens)
 
