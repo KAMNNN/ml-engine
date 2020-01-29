@@ -21,9 +21,11 @@ from gensim.models import KeyedVectors
 from gensim.scripts.glove2word2vec import glove2word2vec
 from gensim.models import Word2Vec
 from gensim.models.word2vec import LineSentence
+from gensim.models.wrappers import FastText
 
 nlp = spacy.load("en")
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
 TRAIN_SET = { 
     "squad" : "https://rajpurkar.github.io/SQuAD-explorer/dataset/train-v2.0.json",
     "coqa" :  "https://nlp.stanford.edu/data/coqa/coqa-train-v1.0.json",
@@ -39,10 +41,10 @@ GLOVE_URL = "http://nlp.stanford.edu/data/glove.840B.300d.zip"
 GLOVE_DATA = './data/glove.840B.300d.txt'
 GLOVE_VEC = './data/word2vec-glove.840B.300d.txt'
 
-WORD2VEC_URL = "http://dumps.wikimedia.org/enwiki/latest/enwiki-latest-pages-articles.xml.bz2"
-WORD2VEC_DATA = "./data/enwiki-latest-pages-articles.xml.bz2"
-WORD2VEC_EXTRACT_DATA = "./data/wiki.en.text"
-WORD2VEC_MODEL = "./data/wiki.en.word2vec.model"
+WIKI_URL = "http://dumps.wikimedia.org/enwiki/latest/enwiki-latest-pages-articles.xml.bz2"
+WIKI_DATA = "./data/enwiki-latest-pages-articles.xml.bz2"
+WIKI_EXTRACT_DATA = "./data/wiki.en.text"
+WIKI_MODEL = "./data/wiki.en.word2vec.model"
 
 SQUAD_TRAIN = "./data/squad-train-v2.0.json"
 SQUAD_DEV   = "./data/squad-dev-v2.0.json"
@@ -60,8 +62,21 @@ if not os.path.exists('./data'):
 if not os.path.exists('./checkpoint'):
     os.makedirs('./checkpoint')
 
-def vectorize(wikipedia=False):
-    if(not wikipedia):
+def vectorize(wikipedia=False, FastText=False):
+    if(FastText):
+        model = FastText.load_fasttext_format('wiki.en.bin')
+        return model
+    elif(wikipedia):
+        if not os.path.exists('./data/wiki_word_vec.kv'):
+            wiki = WikiCorpus(WIKI_DATA, lemmatize=False, dictionary={})
+            sentences = list(wiki.get_texts())
+            model = Word2Vec(sentences, sg=1, hs=1, size=300, workers=max(1, mp.cpu_count()-1), sample=1e-3, iter=5, min_count=10)
+            word_vectors = model.wv
+            word_vectors.save('./data/wiki_word_vec.kv')
+            return word_vectors
+        else:
+            return KeyedVectors.load('./data/wiki_word_vec.kv', mmap='r')           
+    else:
         if not os.path.exists('./data/glove_word_vec.kv'):
             glove2word2vec(GLOVE_DATA, GLOVE_VEC)
             model = KeyedVectors.load_word2vec_format(GLOVE_VEC)
@@ -70,19 +85,8 @@ def vectorize(wikipedia=False):
             return word_vectors
         else:
             return KeyedVectors.load("./data/glove_word_vec.kv", mmap='r')
-    else:
-        if not os.path.exists('./data/wiki_word_vec.kv'):
-            wiki = WikiCorpus(WIKI_DATA, lemmatize=False, dictionary={})
-            sentences = wiki.get_texts()
-            params = {'size': 300, 'window': 10, 'min_count': 10, 'workers': max(1, mp.cpu_count() - 1), 'sample': 1E-3,}
-            model = Word2Vec(**params)
-            model.build_vocab(sentences, progress_per=10000)
-            model.train(sentences, max_epoch=30)
-            word_vectors = model.wv
-            word_vectors.save('./data/wiki_word_vec.kv')
-            return word_vectors
-        else:
-            return KeyedVectors.load('./data/wiki_word_vec.kv', mmap='r')           
+    
+    
 
 def Softmax(x):
     e_x = np.exp(x - np.max(x))
@@ -93,8 +97,8 @@ if not os.path.exists(GLOVE_DATA):
     with zipfile.ZipFile('./data/glove.840B.300d.zip', 'r') as zip_ref:
         zip_ref.extractall('./data/')
     os.remove('./data/glove.840B.300d.zip')
-if not os.path.exists(WORD2VEC_DATA):
-    urllib.request.urlretrieve(WORD2VEC_URL, WORD2VEC_DATA)
+if not os.path.exists(WIKI_DATA):
+    urllib.request.urlretrieve(WIKI_URL, WIKI_DATA)
 if not os.path.exists(SQUAD_TRAIN):
     urllib.request.urlretrieve(TRAIN_SET['squad'], SQUAD_TRAIN) 
 if not os.path.exists(SQUAD_TRAIN):

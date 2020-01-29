@@ -14,7 +14,7 @@ class nlp_engine:
         self.tokenizer   = BertTokenizer.from_pretrained("bert-base-uncased")
         self.model       = BertModel.from_pretrained("bert-base-uncased")
         self.use_coref = False
-        self.vectorizer = data.vectorize()
+        self.vectorizer = data.vectorize(True, False)
         self.stemmer = PorterStemmer()
 
     def make_multiple_choice(self, word, sentence, ai=False):
