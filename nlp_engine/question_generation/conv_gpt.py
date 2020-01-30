@@ -22,12 +22,13 @@ EPOCHS = 4
 BATCH_SIZE = 4
 
 device = torch.device("cuda:0" if torch.cuda.device_count() > 1 else "cpu")
+model = GPT2Model.from_pretrained('gpt2').to(device)
+optimizer = AdamW(model.parameters(), lr=6.25e-5)
 
 def train():
     ds = data.Bert_GPT2_DataClass()
-    dl = DataLoader(ds, num_workers=4, batch_size=BATCH_SIZE)
-    model = GPT2Model.from_pretrained('gpt2').to(device)
-    optimizer = AdamW(model.parameters(), lr=6.25e-5)
+    dl = DataLoader(ds, num_workers=12, batch_size=BATCH_SIZE)    
+
 
     scheduler = PiecewiseLinear(optimizer, "lr", [(0, 6.25e-5), (EPOCHS * len(ds)//BATCH_SIZE, 0.0)])
     metrics = { "nll": Loss(torch.nn.CrossEntropyLoss(ignore_index=-1)) }
