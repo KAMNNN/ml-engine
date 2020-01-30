@@ -9,11 +9,13 @@
 *.userosscache
 *.sln.docstates
 
-./nlp_engine/data/*
-./nlp_engine/checkpoint/*
-nlp_engine/data/*
-nlp_engine/checkpoint/*
+./nlp_engine/question_generation/data/*
+./nlp_engine/question_generation/checkpoint/*
+./nlp_engine/question_generation/logs/*
 
+nlp_engine/question_generation/data/*
+nlp_engine/question_generation/checkpoint/*
+nlp_engine/question_generation/logs/*
 # User-specific files (MonoDevelop/Xamarin Studio)
 *.userprefs
 

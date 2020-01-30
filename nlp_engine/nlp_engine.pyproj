@@ -5,7 +5,7 @@
     <ProjectGuid>ec4fa0b9-9caf-4b47-a053-1e68b8ff1be4</ProjectGuid>
     <ProjectHome>
     </ProjectHome>
-    <StartupFile>bert_gpt.py</StartupFile>
+    <StartupFile>question_generation\train.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -14,6 +14,9 @@
     <RootNamespace>Transfomer_QANet</RootNamespace>
     <InterpreterId>CondaEnv|CondaEnv|kamn</InterpreterId>
     <SuppressPackageInstallationPrompt>True</SuppressPackageInstallationPrompt>
+    <LaunchProvider>Standard Python launcher</LaunchProvider>
+    <CommandLineArguments>--gpt_qgen</CommandLineArguments>
+    <EnableNativeCodeDebugging>False</EnableNativeCodeDebugging>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
     <DebugSymbols>true</DebugSymbols>
@@ -24,18 +27,27 @@
     <EnableUnmanagedDebugging>false</EnableUnmanagedDebugging>
   </PropertyGroup>
   <ItemGroup>
-    <InterpreterReference Include="CondaEnv|CondaEnv|kamn" />
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Include="bert_gpt.py">
+    <Compile Include="question_generation\conv_gpt.py">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Include="data.py" />
-    <Compile Include="bert_sqg.py" />
-    <Compile Include="model.py">
+    <Compile Include="question_generation\data.py" />
+    <Compile Include="question_generation\bert_sqg.py" />
+    <Compile Include="question_generation\data_utils.py">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Include="question_generation\model.py">
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="nlp_engine.py" />
+    <Compile Include="question_generation\train.py">
+      <SubType>Code</SubType>
+    </Compile>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="question_generation\" />
+  </ItemGroup>
+  <ItemGroup>
+    <InterpreterReference Include="CondaEnv|CondaEnv|kamn" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
   <!-- Uncomment the CoreCompile target to enable the Build command in

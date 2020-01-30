@@ -1,130 +1,23 @@
-import os
-import six
 import json
 import torch
-import urllib.request
-import numpy as np
 import torch.nn as nn
-import subprocess
 import spacy
-import zipfile
 from tqdm import tqdm
 from collections import defaultdict
 from transformers import *
 from torch.utils.data import Dataset   
 from multiprocessing import Pool
 import multiprocessing as mp
+import data_utils
 
 
-from gensim.corpora import WikiCorpus
-from gensim.models import KeyedVectors
-from gensim.scripts.glove2word2vec import glove2word2vec
-from gensim.models import Word2Vec
-from gensim.models.word2vec import LineSentence
-from gensim.models.wrappers import FastText
 
-nlp = spacy.load("en")
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+vectorize = data_utils.vectorize
 
-TRAIN_SET = { 
-    "squad" : "https://rajpurkar.github.io/SQuAD-explorer/dataset/train-v2.0.json",
-    "coqa" :  "https://nlp.stanford.edu/data/coqa/coqa-train-v1.0.json",
-    "quac" :  "https://s3.amazonaws.com/my89public/quac/train_v0.2.json"
-}
-DEV_SET = {
-    "squad" : "https://rajpurkar.github.io/SQuAD-explorer/dataset/dev-v2.0.json",
-    "coqa" :  "https://nlp.stanford.edu/data/coqa/coqa-dev-v1.0.json",
-    "quac" :  "https://s3.amazonaws.com/my89public/quac/val_v0.2.json"
-}
-
-GLOVE_URL = "http://nlp.stanford.edu/data/glove.840B.300d.zip"
-GLOVE_DATA = './data/glove.840B.300d.txt'
-GLOVE_VEC = './data/word2vec-glove.840B.300d.txt'
-
-WIKI_URL = "http://dumps.wikimedia.org/enwiki/latest/enwiki-latest-pages-articles.xml.bz2"
-WIKI_DATA = "./data/enwiki-latest-pages-articles.xml.bz2"
-WIKI_EXTRACT_DATA = "./data/wiki.en.text"
-WIKI_MODEL = "./data/wiki.en.word2vec.model"
-
-FASTTEXT_URL = "https://dl.fbaipublicfiles.com/fasttext/vectors-wiki/wiki.en.zip"
-FASTTEXT_BIN = "./data/wiki.en.bin"
-
-SQUAD_TRAIN = "./data/squad-train-v2.0.json"
-SQUAD_DEV   = "./data/squad-dev-v2.0.json"
-COQA_TRAIN = "./data/coqa-train-v1.0.json"
-COQA_DEV   = "./data/coqa-dev-v1.0.json"
-QUAC_TRAIN = "./data/quac-train-v0.2.json"
-QUAC_DEV   = "./data/quac-dev-v0.2.json"
 
 THREAD_NUM = mp.cpu_count() // 2
-
-if not os.path.exists('./data'):
-    os.makedirs('./data')
-    if not os.path.exists('./data/wiki'):
-        os.makedirs('./data/wiki')
-if not os.path.exists('./checkpoint'):
-    os.makedirs('./checkpoint')
-if not os.path.exists('./logs'):
-    os.makedirs('./logs')
-    
-def vectorize(wikipedia=False, fasttext=False):
-    if(fasttext):
-        model = FastText.load_fasttext_format('wiki.en.bin')
-        return model
-    elif(wikipedia):
-        if not os.path.exists('./data/wiki_word_vec.kv'):
-            wiki = WikiCorpus(WIKI_DATA, lemmatize=False, dictionary={})
-            sentences = list(wiki.get_texts())
-            model = Word2Vec(sg=1, hs=1, size=300, sample=1e-3, iter=5, min_count=10)
-            model.init_sims(replace=True)
-            model.build_vocab(sentences)
-            model.train(sentences=sentences, total_examples=len(sentences), epochs=10)
-            word_vectors = model.wv
-            word_vectors.save_word2vec_format('./data/wiki_word_vec.bin')
-            return word_vectors
-        else:
-            return Word2Vec.load('./data/wiki_word_vec.bin')           
-    else:
-        if not os.path.exists('./data/glove_word_vec.kv'):
-            glove2word2vec(GLOVE_DATA, GLOVE_VEC)
-            model = KeyedVectors.load_word2vec_format(GLOVE_VEC)
-            word_vectors = model.wv
-            word_vectors.save_word2vec_format('./data/glove_word_vec.bin')
-            return word_vectors
-        else:
-            return Word2Vec.load("./data/glove_word_vec.bin")
-    
-def Softmax(x):
-    e_x = np.exp(x - np.max(x))
-    return e_x / e_x.sum()
-
-if not os.path.exists(GLOVE_DATA):
-    urllib.request.urlretrieve(GLOVE_URL, './data/glove.840B.300d.zip')
-    with zipfile.ZipFile('./data/glove.840B.300d.zip', 'r') as zip_ref:
-        zip_ref.extractall('./data/')
-    os.remove('./data/glove.840B.300d.zip')
-if not os.path.exists(FASTTEXT_DATA):
-    urllib.request.urlretrieve(FASTTEXT_URL, './data/wiki.en.zip')
-    with zipfile.ZipFile('./data/wiki.en.zip', 'r') as zip_ref:
-        zip_ref.extractall('./data/')
-    os.remove('./data/wiki.en.zip')
-
-if not os.path.exists(WIKI_DATA):
-    urllib.request.urlretrieve(WIKI_URL, WIKI_DATA)
-if not os.path.exists(SQUAD_TRAIN):
-    urllib.request.urlretrieve(TRAIN_SET['squad'], SQUAD_TRAIN) 
-if not os.path.exists(SQUAD_TRAIN):
-    urllib.request.urlretrieve(TRAIN_SET['squad'], SQUAD_TRAIN) 
-if not os.path.exists(SQUAD_DEV):
-    urllib.request.urlretrieve(DEV_SET['squad'], SQUAD_DEV)
-if not os.path.exists(COQA_TRAIN):
-    urllib.request.urlretrieve(TRAIN_SET['coqa'], COQA_TRAIN)
-if not os.path.exists(COQA_DEV):
-    urllib.request.urlretrieve(DEV_SET['coqa'], COQA_DEV)
-if not os.path.exists(QUAC_TRAIN):
-    urllib.request.urlretrieve(TRAIN_SET['quac'], QUAC_TRAIN)
-if not os.path.exists(QUAC_DEV):
-    urllib.request.urlretrieve(DEV_SET['quac'], QUAC_DEV)
+nlp = spacy.load("en")
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 
 class DataClass(Dataset): 
@@ -136,9 +29,9 @@ class DataClass(Dataset):
         pass
 
 def _PreProcess(squad=True, coqa=True, quac=True):   
-    s = [json.load(open(SQUAD_TRAIN)), json.load(open(SQUAD_DEV))]
-    c = [json.load(open(COQA_TRAIN)), json.load(open(COQA_DEV))]
-    q = [json.load(open(QUAC_TRAIN)), json.load(open(QUAC_DEV))]
+    s = [json.load(open(data_utils.SQUAD_TRAIN)), json.load(open(data_utils.SQUAD_DEV))]
+    c = [json.load(open(data_utils.COQA_TRAIN)), json.load(open(data_utils.COQA_DEV))]
+    q = [json.load(open(data_utils.QUAC_TRAIN)), json.load(open(data_utils.QUAC_DEV))]
     SQUAD = defaultdict(list)
     COQA  = defaultdict(list)
     QUAC  = defaultdict(list)
@@ -300,8 +193,7 @@ class BertSQG_DataClass(DataClass):
                 tensor[i] = x[i]
             output.append(tensor)
         return output
-
-        
+            
         
 class Bert_GPT2_DataClass(DataClass):
     def __init__(self):
@@ -310,43 +202,67 @@ class Bert_GPT2_DataClass(DataClass):
         self.tokenizer2 = GPT2Tokenizer.from_pretrained("gpt2")
         self.SPECIAL_TOKENS = [ "<bos>", "<eos>", "<paragraph>", "<answer-general>", "<answer-specific>", "<question-general>", "<question-specific>", "<pad>" ]
         self.MODEL_INPUTS = ["input_ids", "lm_labels", "token_type_ids"]
-        
-    def __len__(self):
-        return len(self.training_data)
+        self.truncated_sequences = 0
 
+    def get_position(self, para_ids, ans_ids, ans_prefix_ids):
+        diff_index = -1
+        for i, (pid, apid) in enumerate(zip(para_ids, ans_prefix_ids)):
+            if pid != apid:
+                diff_index = i
+                break
+        if diff_index == -1:
+            diff_index = min(len(ans_prefix_ids), len(para_ids))
+        return (diff_index, min(diff_index + len(ans_ids), len(para_ids)))
+
+    def __len__(self):
+        return len(self.answers)
+    
     def __getitem__(self, idx):
         bos, eos, paragraph, answer_general, answer_specific, question_general, question_specific = self.tokenizer2.convert_tokens_to_ids(self.SPECIAL_TOKENS[:-1])
-   
         answer, start, context_id, question_id = self.answers[idx]
-        context_tokens = self.tokenizer2(self.contexts[context_id])
-        question_tokens = self.tokenizer2(self.questions[question_id])
-        answer_tokens = self.tokenizer2(answer)
         
+        context_tokens = self.tokenizer2.tokenize(self.contexts[context_id])
+        question_tokens = self.tokenizer2.tokenize(self.questions[question_id])
+        answer_tokens = self.tokenizer2.tokenize(answer)
+        answer_token_prefix = self.tokenizer2.tokenize(self.contexts[context_id][:start])
+        
+        total_seq_len = len(context_tokens) + len(answer_tokens) + len(question_tokens) + 4
+        if total_seq_len > self.tokenizer2.max_len: # Heuristic to chop off extra tokens in paragraphs            
+            context_tokens = context_tokens[:-1 * (total_seq_len - self.tokenizer2.max_len + 1)]
+            self.truncated_sequences += 1
+            assert len(context_tokens) + len(answer_tokens) + len(question_tokens) + 4 < tokenizer.max_len
+
+        context_tokens = self.tokenizer2.convert_tokens_to_ids(context_tokens)
+        question_tokens = self.tokenizer2.convert_tokens_to_ids(question_tokens)
+        answer_tokens = self.tokenizer2.convert_tokens_to_ids(answer_tokens)
+        answer_token_prefix = self.tokenizer2.convert_tokens_to_ids(answer_token_prefix)
+        
+        token_start, token_end = self.get_position(context_tokens, answer_tokens, answer_token_prefix)
+
 
         sequence = [bos] + context_tokens
         token_types = [ answer_general if ((i - 1) >= token_start and (i - 1) < token_end) else paragraph  for i in range(len(context_tokens) + 1)]
         lm_labels = [-1 for _ in range(len(context_tokens)+1)]
         
-        sequence.extends([answer_general] + answer_tokens)
-        token_types.extend([answer_general for _ in range(len(answer_tokens) + 2)])
+        sequence.extend([answer_general] + answer_tokens)
+        token_types.extend([answer_general for _ in range(len(answer_tokens) + 1)])
         lm_labels.extend([-1 for _ in range(len(answer_tokens) + 1)])
 
-        sequence.extends([question_general] + question_tokens + [eos])
+        sequence.extend([question_general] + question_tokens + [eos])
         token_types.extend([question_general for _ in range(len(question_tokens) + 2)])        
         lm_labels.extend([-1] + question_tokens + [eos])
         assert len(sequence) == len(token_types)
         assert len(token_types) == len(lm_labels)
+        
         instance = {
-            "input_ids": torch.tensor(sequence).to(device),
-            "token_type_ids": torch.tensor(token_types).to(device),
-            "lm_labels": torch.tensor(lm_labels).to(device)
+            "input_ids": sequence,
+            "token_type_ids": token_types,
+            "lm_labels": lm_labels
         }
 
         padding = self.tokenizer2.convert_tokens_to_ids(self.SPECIAL_TOKENS[-1])
-        max_l = self.tokenizer2.max_len()
+        max_l = self.tokenizer2.max_len
         for name in instance.keys():     
-            instance[name] = [x + [padding if name != "lm_labels" else -1] * (max_l - len(x)) for x in instance[name]]
-
-     
-
+            instance[name] = torch.tensor( instance[name] + [padding if name != 'lm_labels' else -1] * (max_l - len(instance[name])), dtype=torch.long).to(device)
+        
         return instance 

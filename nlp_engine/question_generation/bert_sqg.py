@@ -1,17 +1,34 @@
 import torch
-import numpy as np
 import torch.nn as nn
 from torch.utils.data import DataLoader
 from transformers import *
 from tqdm import tqdm
-from model import *
-import subprocess
 import spacy
 import data
 
-device = data.device
 
-def train(dataset):
+BERT_TYPE = "bert-base-uncased"
+device = data.device
+tokenizer = BertTokenizer.from_pretrained(BERT_TYPE)
+class Bert_SQG(nn.Module):
+    def __init__(self):
+        super(Bert_SQG, self).__init__()
+        self.bert = BertModel.from_pretrained(BERT_TYPE)
+        self.bert.train()
+        self.cls = nn.Linear(self.bert.config.hidden_size, tokenizer.vocab_size)
+        self.bias = torch.zeros(tokenizer.vocab_size)
+        self.softmax = nn.Softmax(dim=1)
+        #if(torch.cuda.device_count() > 1):
+        #    self.bert = nn.DataParallel(self.bert)
+
+    def forward(self, x):
+        h = self.bert(x)
+        h = self.softmax(self.cls(h[0]) + self.bias)
+        return h
+    
+def train():
+    ds = data.BertSQG_DataClass()
+    dataset = DataLoader(ds, num_workers=4, batch_size=4)
     model = Bert_SQG()
     model = model.to(device) 
     optimizer = AdamW(model.parameters(), lr=3e-5)
@@ -40,14 +57,4 @@ def train(dataset):
             'optimizer': optimizer.state_dict()
         }
         torch.save(checkpoint, "./checkpoint/bert_sqg.pt")
-        print()
-
-
-def main():
-    ds = data.BertSQG_DataClass()
-    dl = DataLoader(ds, num_workers=4, batch_size=4)
-    train(dl)
-
-
-if __name__ == "__main__":
-    main()
+        print('Trained Model')

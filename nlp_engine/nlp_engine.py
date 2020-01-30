@@ -3,7 +3,7 @@ import spacy
 import neuralcoref
 from transformers import *
 from gensim.parsing.porter import PorterStemmer
-import data
+import question_generation.data
 
 
 nlp = spacy.load("en")
