@@ -75,7 +75,7 @@ def vectorize(wikipedia=False, FastText=False):
             model = Word2Vec(sg=1, hs=1, size=300, sample=1e-3, iter=5, min_count=10)
             model.init_sims(replace=True)
             model.build_vocab(sentences)
-            model.
+            model.train()
             word_vectors = model.wv
             word_vectors.save_word2vec_format('./data/wiki_word_vec.bin')
             return word_vectors
