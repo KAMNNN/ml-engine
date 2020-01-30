@@ -72,25 +72,25 @@ def vectorize(wikipedia=False, FastText=False):
         if not os.path.exists('./data/wiki_word_vec.kv'):
             wiki = WikiCorpus(WIKI_DATA, lemmatize=False, dictionary={})
             sentences = list(wiki.get_texts())
-            model = Word2Vec(sentences, sg=1, hs=1, size=300, workers=max(1, mp.cpu_count()-1), sample=1e-3, iter=5, min_count=10)
+            model = Word2Vec(sg=1, hs=1, size=300, sample=1e-3, iter=5, min_count=10)
             model.init_sims(replace=True)
+            model.build_vocab(sentences)
+            model.
             word_vectors = model.wv
-            word_vectors.save('./data/wiki_word_vec.kv')
+            word_vectors.save_word2vec_format('./data/wiki_word_vec.bin')
             return word_vectors
         else:
-            return KeyedVectors.load('./data/wiki_word_vec.kv', mmap='r')           
+            return Word2Vec.load('./data/wiki_word_vec.bin')           
     else:
         if not os.path.exists('./data/glove_word_vec.kv'):
             glove2word2vec(GLOVE_DATA, GLOVE_VEC)
             model = KeyedVectors.load_word2vec_format(GLOVE_VEC)
             word_vectors = model.wv
-            word_vectors.save('./data/glove_word_vec.kv')
+            word_vectors.save_word2vec_format('./data/glove_word_vec.bin')
             return word_vectors
         else:
-            return KeyedVectors.load("./data/glove_word_vec.kv", mmap='r')
+            return Word2Vec.load("./data/glove_word_vec.bin")
     
-    
-
 def Softmax(x):
     e_x = np.exp(x - np.max(x))
     return e_x / e_x.sum()
