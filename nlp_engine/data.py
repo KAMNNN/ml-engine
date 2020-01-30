@@ -46,6 +46,9 @@ WIKI_DATA = "./data/enwiki-latest-pages-articles.xml.bz2"
 WIKI_EXTRACT_DATA = "./data/wiki.en.text"
 WIKI_MODEL = "./data/wiki.en.word2vec.model"
 
+FASTTEXT_URL = "https://dl.fbaipublicfiles.com/fasttext/vectors-wiki/wiki.en.zip"
+FASTTEXT_BIN = "./data/wiki.en.bin"
+
 SQUAD_TRAIN = "./data/squad-train-v2.0.json"
 SQUAD_DEV   = "./data/squad-dev-v2.0.json"
 COQA_TRAIN = "./data/coqa-train-v1.0.json"
@@ -64,8 +67,8 @@ if not os.path.exists('./checkpoint'):
 if not os.path.exists('./logs'):
     os.makedirs('./logs')
     
-def vectorize(wikipedia=False, FastText=False):
-    if(FastText):
+def vectorize(wikipedia=False, fasttext=False):
+    if(fasttext):
         model = FastText.load_fasttext_format('wiki.en.bin')
         return model
     elif(wikipedia):
@@ -75,7 +78,7 @@ def vectorize(wikipedia=False, FastText=False):
             model = Word2Vec(sg=1, hs=1, size=300, sample=1e-3, iter=5, min_count=10)
             model.init_sims(replace=True)
             model.build_vocab(sentences)
-            model.train()
+            model.train(sentences=sentences, total_examples=len(sentences), epochs=10)
             word_vectors = model.wv
             word_vectors.save_word2vec_format('./data/wiki_word_vec.bin')
             return word_vectors
@@ -100,6 +103,12 @@ if not os.path.exists(GLOVE_DATA):
     with zipfile.ZipFile('./data/glove.840B.300d.zip', 'r') as zip_ref:
         zip_ref.extractall('./data/')
     os.remove('./data/glove.840B.300d.zip')
+if not os.path.exists(FASTTEXT_DATA):
+    urllib.request.urlretrieve(FASTTEXT_URL, './data/wiki.en.zip')
+    with zipfile.ZipFile('./data/wiki.en.zip', 'r') as zip_ref:
+        zip_ref.extractall('./data/')
+    os.remove('./data/wiki.en.zip')
+
 if not os.path.exists(WIKI_DATA):
     urllib.request.urlretrieve(WIKI_URL, WIKI_DATA)
 if not os.path.exists(SQUAD_TRAIN):
