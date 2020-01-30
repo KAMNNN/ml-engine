@@ -61,7 +61,9 @@ if not os.path.exists('./data'):
         os.makedirs('./data/wiki')
 if not os.path.exists('./checkpoint'):
     os.makedirs('./checkpoint')
-
+if not os.path.exists('./logs'):
+    os.makedirs('./logs')
+    
 def vectorize(wikipedia=False, FastText=False):
     if(FastText):
         model = FastText.load_fasttext_format('wiki.en.bin')
@@ -71,6 +73,7 @@ def vectorize(wikipedia=False, FastText=False):
             wiki = WikiCorpus(WIKI_DATA, lemmatize=False, dictionary={})
             sentences = list(wiki.get_texts())
             model = Word2Vec(sentences, sg=1, hs=1, size=300, workers=max(1, mp.cpu_count()-1), sample=1e-3, iter=5, min_count=10)
+            model.init_sims(replace=True)
             word_vectors = model.wv
             word_vectors.save('./data/wiki_word_vec.kv')
             return word_vectors
@@ -296,15 +299,14 @@ class Bert_GPT2_DataClass(DataClass):
         super(Bert_GPT2_DataClass, self).__init__()
         self.tokenizer1 = BertTokenizer.from_pretrained("bert-base-uncased")
         self.tokenizer2 = GPT2Tokenizer.from_pretrained("gpt2")
-        data = _PreProcess()
-        self.training_data = [self.init_helper(x) for x in tqdm(data, total=len(data), desc='Setting up training data')]
         self.SPECIAL_TOKENS = [ "<bos>", "<eos>", "<paragraph>", "<answer-general>", "<answer-specific>", "<question-general>", "<question-specific>", "<pad>" ]
         self.MODEL_INPUTS = ["input_ids", "lm_labels", "token_type_ids"]
-  
+        
     def __len__(self):
         return len(self.training_data)
+
     def __getitem__(self, idx):
-        bos, eos, paragraph, answer_general, answer_specific, question_general, question_specific = tokenizer.convert_tokens_to_ids(self.SPECIAL_TOKENS[:-1])
+        bos, eos, paragraph, answer_general, answer_specific, question_general, question_specific = self.tokenizer2.convert_tokens_to_ids(self.SPECIAL_TOKENS[:-1])
    
         answer, start, context_id, question_id = self.answers[idx]
         context_tokens = self.tokenizer2(self.contexts[context_id])
@@ -323,5 +325,19 @@ class Bert_GPT2_DataClass(DataClass):
         sequence.extends([question_general] + question_tokens + [eos])
         token_types.extend([question_general for _ in range(len(question_tokens) + 2)])        
         lm_labels.extend([-1] + question_tokens + [eos])
-        
-        return (sequence, token_types, lm_labels)
+        assert len(sequence) == len(token_types)
+        assert len(token_types) == len(lm_labels)
+        instance = {
+            "input_ids": torch.tensor(sequence).to(device),
+            "token_type_ids": torch.tensor(token_types).to(device),
+            "lm_labels": torch.tensor(lm_labels).to(device)
+        }
+
+        padding = self.tokenizer2.convert_tokens_to_ids(self.SPECIAL_TOKENS[-1])
+        max_l = self.tokenizer2.max_len()
+        for name in instance.keys():     
+            instance[name] = [x + [padding if name != "lm_labels" else -1] * (max_l - len(x)) for x in instance[name]]
+
+     
+
+        return instance 

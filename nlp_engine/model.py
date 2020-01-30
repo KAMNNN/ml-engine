@@ -29,9 +29,8 @@ class GPT2_QGEN(nn.Module):
         self.gpt2 = GPT2Model.from_pretrained(GPT2_TYPE)
         self.gpt2.train()
 
-    def forward(self, x):
-        h = self.gpt2(x)
-        pass
+    def forward(self, **kwargs):
+        return self.gpt2(kwargs)
 
 class BERT_AGEN(nn.Module):
     def __init__(self):
@@ -39,8 +38,8 @@ class BERT_AGEN(nn.Module):
         self.bert = BertModel.from_pretrained(BERT_TYPE)
         self.bert.train()
 
-    def forward(self, x):
-        h = self.bert(x)
-        pass
+    def forward(self, **kwargs):
+        return self.bert(kwargs)
+        
 
 

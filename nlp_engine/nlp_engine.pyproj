@@ -5,7 +5,7 @@
     <ProjectGuid>ec4fa0b9-9caf-4b47-a053-1e68b8ff1be4</ProjectGuid>
     <ProjectHome>
     </ProjectHome>
-    <StartupFile>bert_sqg.py</StartupFile>
+    <StartupFile>bert_gpt.py</StartupFile>
     <SearchPath>
     </SearchPath>
     <WorkingDirectory>.</WorkingDirectory>
@@ -36,9 +36,6 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="nlp_engine.py" />
-  </ItemGroup>
-  <ItemGroup>
-    <Content Include="requirements.txt" />
   </ItemGroup>
   <Import Project="$(MSBuildExtensionsPath32)\Microsoft\VisualStudio\v$(VisualStudioVersion)\Python Tools\Microsoft.PythonTools.targets" />
   <!-- Uncomment the CoreCompile target to enable the Build command in

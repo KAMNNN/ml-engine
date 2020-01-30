@@ -3,6 +3,7 @@ export CONDA_ALWAYS_YES="true"
 conda create -n kamn python=3.7
 conda install -n kamn anaconda
 conda install -n kamn pytorch cpuonly -c pytorch
+conda install ignite -c pytorch
 conda install -n kamn -c anaconda gensim
 unset CONDA_ALWAYS_YES 
 conda init --all --dry-run --verbose

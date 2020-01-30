@@ -1,6 +1,5 @@
 import torch 
 import numpy as np
-import torch.nn as nn
 from torch.utils.data import DataLoader
 from transformers import *
 from tqdm import tqdm
@@ -9,57 +8,51 @@ import subprocess
 import spacy
 import data
 
+from ignite.engine import Engine, Events
+from ignite.handlers import ModelCheckpoint
+from ignite.metrics import Accuracy, Loss, MetricsLambda, RunningAverage
+from ignite.contrib.handlers import ProgressBar, PiecewiseLinear
+from ignite.contrib.handlers.tensorboard_logger import TensorboardLogger, OutputHandler, OptimizerParamsHandler
+
 #subprocess.call("python -m spacy download en_core_web_lg")
 nlp = spacy.load("en_core_web_lg")
 #python -m spacy download en_core_web_lg
 #python -m spacy download en_core_web_sm
-
-device = torch.device("cuda:1" if torch.cuda.device_count() > 1 else "cpu")
-
-def train(dataset):
-    model1 = BERT_AGEN().to(device)
-    model2 = GPT2_QGEN().to(device)
-
-    optimizer1 = AdamW(model1.parameters(), lr = 3e-5)
-    optimizer2 = AdamW(model2.parameters(), lr = 3e-5)
-    criterion1 = nn.CrossEntropyLoss()
-    criterion2 = nn.CrossEntropyLoss()
+EPOCHS = 4
 
 
-    for epoch in range(25):
-        for x,y,m in tqdm(dataset, desc='------ Training Epoch:{} ------'.format(epoch)):
-            input_tensor = x
-            output_tensor = x
-            
-            question_Generated = model1()
-            
-        
+device = torch.device("cuda:0" if torch.cuda.device_count() > 1 else "cpu")
 
-            answer_Generated = model2(question_Generated)
-            
-            
-            optimizer1.zero_grad()        
-            optimizer2.zero_grad()      
-
-        checkpoint = {
-            'model': model1,
-            'state_dict': model1.state_dict(),
-            'optimizer' : optimizer.state_dict()
-        }            
-        torch.save(checkpoint, "./checkpoint/bert_ag.pt")
-        checkpoint = {
-            'model': model2,
-            'state_dict': model2.state_dict(),
-            'optimizer' : optimizer.state_dict()
-        }            
-        torch.save(checkpoint, "./checkpoint/bert_ag.pt")
-
-        print()
+def update(engine, batch):
+    batch = tuple(input_tensor.to(device) for input_tensor in batch)
+    lm_loss = model(*batch)
+    loss = lm_loss / 8
+    loss.backward()
+    torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+    if engine.state.iteration % 8 == 0:
+        optimizer.step()
+        optimizer.zero_grad()
+        return loss.item()
 
 def main():
-    ds = data.data()
-    dl = DataLoader(ds, num_workers=4, batch_sampler=2)
-    train(ds)
-    
+    ds = data.Bert_GPT2_DataClass()
+    dl = DataLoader(ds, num_workers=4, batch_sampler=4)
+    trainer = Engine(update)
+    model = GPT2_QGEN().to(device)
+    scheduler = PiecewiseLinear(optimizer, "lr", [(0, 6.25e-5), (EPOCHS * len(dl), 0.0)])
+    trainer.add_event_handler(Events.ITERATION_STARTED, scheduler)
+    RunningAverage(output_transform=lambda x: x).attach(trainer, "loss")
+    metrics = { "nll": Loss(torch.nn.CrossEntropyLoss(ignore_index=-1)) }
+    pbar = ProgressBar(persist=True)
+    pbar.attach(trainer, metric_names=["loss"])
+    tb_logger = TensorboardLogger(log_dir='./logs')
+    checkpoint_handler = ModelCheckpoint(tb_logger.writer.log_dir, 'checkpoint', save_interval=1, n_saved=3)
+    trainer.add_event_handler(Events.EPOCH_COMPLETED, checkpoint_handler, {'mymodel': getattr(model, 'module', model)})  
+    torch.save( tb_logger.writer.log_dir + '/model_training.bin')
+    getattr(model, 'module', model).config.to_json_file(os.path.join(tb_logger.writer.log_dir, CONFIG_NAME))    
+    tokenizer.save_vocabulary(tb_logger.writer.log_dir)
+
+    trainer.run(dl, max_epochs=EPOCHS)
+    tb_loger.close()
 if __name__ == "__main__":
     main()
