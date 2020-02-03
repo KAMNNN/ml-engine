@@ -50,8 +50,6 @@ class TqdmUpTo(tqdm):
 
 if not os.path.exists('./data'):
     os.makedirs('./data')
-    if not os.path.exists('./data/wiki'):
-        os.makedirs('./data/wiki')
 if not os.path.exists('./checkpoint'):
     os.makedirs('./checkpoint')
 if not os.path.exists('./logs'):
