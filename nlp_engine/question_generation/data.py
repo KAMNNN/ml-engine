@@ -262,7 +262,8 @@ class Bert_GPT2_DataClass(DataClass):
 
         padding = self.tokenizer2.convert_tokens_to_ids(self.SPECIAL_TOKENS[-1])
         max_l = self.tokenizer2.max_len
+        out = list()
         for name in instance.keys():     
-            instance[name] = torch.tensor( instance[name] + [padding if name != 'lm_labels' else -1] * (max_l - len(instance[name])), dtype=torch.long).to(device)
+            out.append(torch.tensor( instance[name] + [padding if name != 'lm_labels' else -1] * (max_l - len(instance[name])), dtype=torch.long))
         
-        return instance 
+        return out

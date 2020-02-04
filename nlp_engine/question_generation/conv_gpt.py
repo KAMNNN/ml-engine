@@ -19,13 +19,15 @@ nlp = spacy.load("en")
 #python -m spacy download en_core_web_lg
 #python -m spacy download en_core_web_sm
 EPOCHS = 4
-BATCH_SIZE = 4
+BATCH_SIZE = 1
 
-device = torch.device("cuda:0" if torch.cuda.device_count() > 1 else "cpu")
-model = GPT2Model.from_pretrained('gpt2').to(device)
-optimizer = AdamW(model.parameters(), lr=6.25e-5)
 
 def train():
+
+    device = torch.device("cuda:0" if torch.cuda.device_count() > 1 else "cpu")
+    model = GPT2LMHeadModel .from_pretrained('gpt2').to(device)
+    optimizer = AdamW(model.parameters(), lr=6.25e-5)
+
     ds = data.Bert_GPT2_DataClass()
     dl = DataLoader(ds, num_workers=12, batch_size=BATCH_SIZE)    
 
@@ -34,9 +36,9 @@ def train():
     metrics = { "nll": Loss(torch.nn.CrossEntropyLoss(ignore_index=-1)) }
     
     def update(engine, batch):
-        batch = tuple(input_tensor.to(device) for input_tensor in batch)
-        model.train()
-        lm_loss = model(*batch)
+        model.train()        
+        batch = tuple(t.to(device) for t in batch)
+        lm_loss, logits, T = model(batch[0], token_type_ids=batch[1], labels=batch[2])
         loss = lm_loss / 8
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
