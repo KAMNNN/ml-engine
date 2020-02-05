@@ -57,7 +57,7 @@ def train():
     trainer.add_event_handler(Events.EPOCH_COMPLETED, checkpoint_handler, {'mymodel': getattr(model, 'module', model)})  
     getattr(model, 'module', model).config.to_json_file(os.path.join('./checkpoint', 'config'))    
     trainer.run(dl, max_epochs=EPOCHS)
-    tb_loger.close()
+    tb_logger.close()
 
 if __name__ == '__main__':
     train()
