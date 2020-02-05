@@ -4,8 +4,8 @@ from torch.utils.data import DataLoader
 from transformers import *
 from tqdm import tqdm
 import subprocess
-import spacy
-import data
+import dataloader
+
 import ignite
 from ignite.engine import Engine, Events
 from ignite.handlers import ModelCheckpoint
@@ -15,23 +15,19 @@ from ignite.contrib.handlers.tensorboard_logger import TensorboardLogger, Output
 
 
 #subprocess.call("python -m spacy download en_core_web_lg")
-nlp = spacy.load("en")
 #python -m spacy download en_core_web_lg
 #python -m spacy download en_core_web_sm
 EPOCHS = 4
 BATCH_SIZE = 1
-
+ITERATION_STEP = 8
 
 def train():
-
     device = torch.device("cuda:0" if torch.cuda.device_count() > 1 else "cpu")
     model = GPT2LMHeadModel .from_pretrained('gpt2').to(device)
     optimizer = AdamW(model.parameters(), lr=6.25e-5)
 
-    ds = data.Bert_GPT2_DataClass()
-    dl = DataLoader(ds, num_workers=12, batch_size=BATCH_SIZE)    
-
-
+    ds = dataloader.Conv_GPT2_DataClass()
+    dl = DataLoader(ds, num_workers=4, batch_size=BATCH_SIZE)    
     scheduler = PiecewiseLinear(optimizer, "lr", [(0, 6.25e-5), (EPOCHS * len(ds)//BATCH_SIZE, 0.0)])
     metrics = { "nll": Loss(torch.nn.CrossEntropyLoss(ignore_index=-1)) }
     
@@ -39,10 +35,9 @@ def train():
         model.train()        
         batch = tuple(t.to(device) for t in batch)
         lm_loss, logits, T = model(batch[0], token_type_ids=batch[1], labels=batch[2])
-        loss = lm_loss / 8
+        loss = lm_loss / ITERATION_STEP
         loss.backward()
-        torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
-        if engine.state.iteration % 8 == 0:
+        if engine.state.iteration % ITERATION_STEP == 0:
             optimizer.step()
             optimizer.zero_grad()
         return loss.item()
@@ -54,7 +49,7 @@ def train():
     pbar.attach(trainer, metric_names=["loss"])    
     tb_logger = TensorboardLogger(log_dir='./logs')
     checkpoint_handler = ModelCheckpoint('./checkpoint', '_checkpoint', save_interval=1, n_saved=3)
-    trainer.add_event_handler(Events.EPOCH_COMPLETED, checkpoint_handler, {'mymodel': getattr(model, 'module', model)})  
+    trainer.add_event_handler(Events.EPOCH_COMPLETED, checkpoint_handler, {'gpt2_qg': getattr(model, 'module', model)})  
     getattr(model, 'module', model).config.to_json_file(os.path.join('./checkpoint', 'config'))    
     trainer.run(dl, max_epochs=EPOCHS)
     tb_logger.close()
