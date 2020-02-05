@@ -11,7 +11,7 @@ import datasets
 
 vectorize = datasets.vectorize
 THREAD_NUM = mp.cpu_count() // 2
-nlp = spacy.load("en")
+nlp = spacy.load("en_core_web_lg")
 
 class DataClass(Dataset): 
     def __init__ (self):

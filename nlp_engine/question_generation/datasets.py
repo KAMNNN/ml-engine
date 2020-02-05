@@ -1,9 +1,18 @@
 import os
+import re
 import json
 import zipfile
+import subprocess
+import numpy as np
 from tqdm.auto import tqdm
 import urllib.request
 import tensorflow_datasets as tfds
+
+import collections
+import glob
+from gzip import GzipFile
+import json
+import multiprocessing
 
 from gensim.corpora import WikiCorpus
 from gensim.models import KeyedVectors
@@ -36,6 +45,11 @@ COQA_TRAIN = "./data/coqa-train-v1.0.json"
 COQA_DEV   = "./data/coqa-dev-v1.0.json"
 QUAC_TRAIN = "./data/quac-train-v0.2.json"
 QUAC_DEV   = "./data/quac-dev-v0.2.json"
+
+#NQ SAMPLE_TRAIN AND SAMPLE_DEV SET can be found 
+NQ_SP_TRAIN = "./data/v1.0-simplified_simplified-nq-train.jsonl.gz"
+NQ_SP_DEV = "./data/v1.0-simplified_nq-dev-all.jsonl.gz"
+
 
 
 class TqdmUpTo(tqdm):
@@ -179,19 +193,55 @@ def quac(dev=False):
                     ans.append([a['answer'], a['answer_start'], context, question])
     return ctx, que, ans
 
-def natural_questions(dev=False):
+
+def natural_questions(dev=False, Large=False):
     ctx,que,ans = list(), list(), list()
     context, question = -1, -1
-    print(tfds.list_builders())
-    nq_builder = tfds.text.natural_questions.NaturalQuestions(data_dir='./data')
-    info = nq_builder.info
-    print(info)
-        #if(dev):
-    #    data = tfds.text.natural_questions.NaturalQuestions(data_dir='./data')
-    #else:
-    #    data = tfds.text.natural_questions.NaturalQuestions(data_dir='./data')
-    
-    #print(data)
+    if not os.path.exists(NQ_SP_DEV):
+        raise RuntimeError("natural question simple dev set not in ./data")
+    if not os.path.exists(NQ_SP_TRAIN):
+        raise RuntimeError("natural question simple train set not in ./data")    
+    if Large:
+        p = subprocess.Popen("gsutil -m cp -R gs://natural_questions/v1.0 ./data", shell=True)
+     
+   
+   
+    if(dev):
+        file = open(NQ_SP_DEV, 'rb')
+    else:
+        file = open(NQ_SP_TRAIN, 'rb')
+
+
+    annotation_dict = {}        
+    with GzipFile(fileobj=file) as input_file:
+        for line in input_file:
+            json_example = json.loads(line)
+            example_id = json_example['example_id']  
+            document_tokens = json_example['document_tokens']
+            print("::::::: CONTEXT ::::::")
+            context = " ".join([re.sub(" ", "_", t['token']) for t in json_example['document_tokens'] if t['html_token'] == False])
+            print(context)
+            print("::::::: QUESTION ::::::")
+            question = json_example['question_text']
+            print(question)
+            annotation_list = []
+            for annotation in json_example['annotations']:
+                if(len(annotation['long_answer']) > 0):
+                    print("::::::: LONG_ANS ::::::")
+                    long_token = annotation['long_answer']
+                    start_token = long_token['start_token']
+                    end_token = long_token['end_token']
+                    tokens = document_tokens[start_token: end_token]
+                    long_answer = ' '.join([re.sub(" ", "_", t['token']) for t in tokens if t['html_token'] == False]) 
+                    print(long_answer)
+                for short_span_rec in annotation['short_answers']:
+                    print("::::::: SHORT_ANS ::::::")
+                    start_token = short_span_rec['start_token']
+                    end_token = short_span_rec['end_token']
+                    tokens = document_tokens[start_token: end_token]
+                    short_answer = ' '.join([re.sub(" ", "_", t['token']) for t in tokens if t['html_token'] == False]) 
+            annotation_dict[example_id] = annotation_list
+                    
     return ctx, que, ans
 
 def preprocess(dev=False, *args):

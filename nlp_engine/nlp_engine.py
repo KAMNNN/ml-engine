@@ -6,7 +6,7 @@ from gensim.parsing.porter import PorterStemmer
 import question_generation.data
 
 
-nlp = spacy.load("en")
+nlp = spacy.load("en_core_web_lg")
 neuralcoref.add_to_pipe(nlp)
 
 class nlp_engine:
