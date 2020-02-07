@@ -73,10 +73,11 @@ def vectorize(wikipedia=False, fasttext=False):
                 urllib.request.urlretrieve(FASTTEXT_URL, './data/wiki.en.zip', reporthook=t.update_to)
             with zipfile.ZipFile('./data/wiki.en.zip', 'r') as zip_ref:
                 zip_ref.extractall('./data/')
-            os.remove('./data/wiki.en.zip')    
-       
-            model = FastText.load_fasttext_format(FASTTEXT_BIN)
-            return model
+            os.remove('./data/wiki.en.zip')
+            model = Fasttext.FastTextKeyedVectors.load_word2vec_format('./data/wiki.en.vec', binary=False, encoding='utf8')
+            word_vectors = model.wv
+            del model
+            return word_vectors
  
     elif(wikipedia):
         if not os.path.exists(WIKI_DATA):

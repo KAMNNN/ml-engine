@@ -63,6 +63,9 @@ def train():
     pbar = ProgressBar(persist=True)
     pbar.attach(trainer, metric_names=["loss"])    
     tb_logger = TensorboardLogger(log_dir='./logs')
+    tb_logger.attach(trainer, log_handler=OutputHandler(tag="training", metric_names=["loss"]), event_name=Events.ITERATION_COMPLETED)
+    tb_logger.attach(trainer, log_handler=OptimizerParamsHandler(optimizer), event_name=Events.ITERATION_STARTED)
+    
     checkpoint_handler = ModelCheckpoint('./checkpoint', '_checkpoint', save_interval=1, n_saved=3)
     trainer.add_event_handler(Events.EPOCH_COMPLETED, checkpoint_handler, {'bert_sqg': getattr(model, 'module', model)})  
     trainer.run(dl, max_epochs=EPOCHS)
