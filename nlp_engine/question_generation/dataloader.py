@@ -15,7 +15,7 @@ nlp = spacy.load("en_core_web_lg")
 
 class DataClass(Dataset): 
     def __init__ (self):
-        self.contexts, self.questions, self.answers = datasets.preprocess(True, 'natural_questions')
+        self.contexts, self.questions, self.answers = datasets.preprocess(False, 'squad')
     def __len__(self):
         return len(self.answers)
     def __getitem__(self, idx):

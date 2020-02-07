@@ -7,7 +7,7 @@ import numpy as np
 from tqdm.auto import tqdm
 import urllib.request
 import tensorflow_datasets as tfds
-
+import spacy
 import collections
 import glob
 from gzip import GzipFile
@@ -47,10 +47,10 @@ QUAC_TRAIN = "./data/quac-train-v0.2.json"
 QUAC_DEV   = "./data/quac-dev-v0.2.json"
 
 #NQ SAMPLE_TRAIN AND SAMPLE_DEV SET can be found 
-NQ_SP_TRAIN = "./data/v1.0-simplified_simplified-nq-train.jsonl.gz"
-NQ_SP_DEV = "./data/v1.0-simplified_nq-dev-all.jsonl.gz"
+NQ_SP_TRAIN = "./data/v1.0_sample_nq-train-sample.jsonl.gz"
+NQ_SP_DEV = "./data/v1.0_sample_nq-dev-sample.jsonl.gz"
 
-
+nlp = spacy.load('en_core_web_lg')
 
 class TqdmUpTo(tqdm):
     def update_to(self, b=1, bsize=1, tsize=None):
@@ -194,8 +194,8 @@ def quac(dev=False):
     return ctx, que, ans
 
 
-def natural_questions(dev=False, Large=False):
-    ctx,que,ans = list(), list(), list()
+def natural_questions(dev=False, Large=False, long=False):
+    ctx,que,ans_l,ans_s = list(), list(), list(), list()
     context, question = -1, -1
     if not os.path.exists(NQ_SP_DEV):
         raise RuntimeError("natural question simple dev set not in ./data")
@@ -204,7 +204,7 @@ def natural_questions(dev=False, Large=False):
     if Large:
         p = subprocess.Popen("gsutil -m cp -R gs://natural_questions/v1.0 ./data", shell=True)
      
-   
+    html_re = re.compile('<.*?>|&([a-z0-9]+|#[0-9]{1,6}|#x[0-9a-f]{1,6});')
    
     if(dev):
         file = open(NQ_SP_DEV, 'rb')
@@ -214,35 +214,53 @@ def natural_questions(dev=False, Large=False):
 
     annotation_dict = {}        
     with GzipFile(fileobj=file) as input_file:
-        for line in input_file:
+        for line in input_file: #tqdm(input_file, desc='PreProcessing NQ'):
             json_example = json.loads(line)
-            example_id = json_example['example_id']  
+            example_id = json_example['example_id']
             document_tokens = json_example['document_tokens']
-            print("::::::: CONTEXT ::::::")
-            context = " ".join([re.sub(" ", "_", t['token']) for t in json_example['document_tokens'] if t['html_token'] == False])
-            print(context)
-            print("::::::: QUESTION ::::::")
-            question = json_example['question_text']
-            print(question)
-            annotation_list = []
+            ctx.append(" ".join([re.sub(" ", "_", t['token']) for t in json_example['document_tokens'] if t['html_token'] == False]))
+            context += 1
+            que.append(json_example['question_text'])
+            question += 1
+            canidates = []
             for annotation in json_example['annotations']:
-                if(len(annotation['long_answer']) > 0):
-                    print("::::::: LONG_ANS ::::::")
+                if(len(annotation['long_answer']) > 0 and annotation['long_answer']['canidate_index'] not in canidates):
                     long_token = annotation['long_answer']
                     start_token = long_token['start_token']
                     end_token = long_token['end_token']
-                    tokens = document_tokens[start_token: end_token]
-                    long_answer = ' '.join([re.sub(" ", "_", t['token']) for t in tokens if t['html_token'] == False]) 
-                    print(long_answer)
+                    canidates.append(long_token['candidate_index'])
+                    long_answer = ' '.join([re.sub(" ", "_", t['token']) for t in document_tokens[start_token: end_token] if t['html_token'] == False]) 
+                    start = 0
+                    for t in document_tokens[:start_token]:
+                        if(t['html_token'] == False):
+                            start += 1
+                    if(long_answer != ''):
+                        ans_l.append([long_answer, start, context, question])
                 for short_span_rec in annotation['short_answers']:
-                    print("::::::: SHORT_ANS ::::::")
                     start_token = short_span_rec['start_token']
                     end_token = short_span_rec['end_token']
-                    tokens = document_tokens[start_token: end_token]
-                    short_answer = ' '.join([re.sub(" ", "_", t['token']) for t in tokens if t['html_token'] == False]) 
-            annotation_dict[example_id] = annotation_list
-                    
-    return ctx, que, ans
+                    short_answer = ' '.join([re.sub(" ", "_", t['token']) for t in document_tokens[start_token: end_token] if t['html_token'] == False])
+                    start = 0
+                    for t in document_tokens[:start_token]:
+                        if(t['html_token'] == False):
+                            start += 1
+                    if(short_answer != ''):
+                        ans_s.append([short_answer, start, context, question])
+            for i, c in enumerate(json_example['long_answer_candidates']):
+                if(i not in canidates):
+                    start_token = long_token['start_token']
+                    end_token   = long_token['end_token']
+                    long_answer = ' '.join([re.sub(" ", "_", t['token']) for t in document_tokens[start_token: end_token] if t['html_token'] == False]) 
+                    start = 0
+                    for t in document_tokens[:start_token]:
+                        if(t['html_token'] == False):
+                            start += 1
+                    if(long_answer != ''):
+                        ans_l.append([long_answer, start, context, question])
+    if(long):
+        ans_s.extend(ans_l)                
+
+    return ctx, que, ans_s
 
 def preprocess(dev=False, *args):
     ctx, que, ans = list(), list(), list()
@@ -255,8 +273,11 @@ def preprocess(dev=False, *args):
             c,q,a = quac(dev)
         elif arg == 'natural_questions':
             c,q,a = natural_questions(dev)
-
         ctx.extend(c)
         que.extend(q)
         ans.extend(a)
+
     return ctx, que, ans
+
+if __name__ == "__main__":
+    preprocess(True, 'natural_questions')
