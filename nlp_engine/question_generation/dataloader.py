@@ -14,8 +14,8 @@ THREAD_NUM = mp.cpu_count() // 2
 nlp = spacy.load("en_core_web_lg")
 
 class DataClass(Dataset): 
-    def __init__ (self):
-        self.contexts, self.questions, self.answers = datasets.preprocess(False, 'squad')
+    def __init__ (self, dev=False):
+        self.contexts, self.questions, self.answers = datasets.preprocess(dev, 'squad')
     def __len__(self):
         return len(self.answers)
     def __getitem__(self, idx):
@@ -70,8 +70,8 @@ def _neural_get_answer_spans(para_text, _processed_spans=[]):
     return spans
 
 class BertSQG_DataClass(DataClass):
-    def __init__(self, max_size=512):        
-        super(BertSQG_DataClass, self).__init__()
+    def __init__(self, max_size=512, dev=False):        
+        super(BertSQG_DataClass, self).__init__(dev)
         self.tokenizer = BertTokenizer.from_pretrained("bert-base-uncased")
         self.max_size = max_size
         
@@ -128,8 +128,8 @@ class BertSQG_DataClass(DataClass):
         return x, y 
                     
 class Conv_GPT2_DataClass(DataClass):
-    def __init__(self):
-        super(Conv_GPT2_DataClass, self).__init__()
+    def __init__(self, dev=False):
+        super(Conv_GPT2_DataClass, self).__init__(dev)
         #self.tokenizer_ = BertTokenizer.from_pretrained("bert-base-uncased")
         self.tokenizer1 = GPT2Tokenizer.from_pretrained("gpt2")
         self.SPECIAL_TOKENS = [ "<bos>", "<eos>", "<paragraph>", "<answer-general>", "<answer-specific>", "<question-general>", "<question-specific>", "<pad>" ]

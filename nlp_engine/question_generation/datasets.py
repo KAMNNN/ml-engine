@@ -46,7 +46,8 @@ COQA_DEV   = "./data/coqa-dev-v1.0.json"
 QUAC_TRAIN = "./data/quac-train-v0.2.json"
 QUAC_DEV   = "./data/quac-dev-v0.2.json"
 
-#NQ SAMPLE_TRAIN AND SAMPLE_DEV SET can be found 
+NQ_SP_TRAIN_URL = 'https://storage.cloud.google.com/natural_questions/v1.0/sample/nq-train-sample.jsonl.gz'
+NQ_SP_DEV_URL = 'https://storage.cloud.google.com/natural_questions/v1.0/sample/nq-dev-sample.jsonl.gz'
 NQ_SP_TRAIN = "./data/v1.0_sample_nq-train-sample.jsonl.gz"
 NQ_SP_DEV = "./data/v1.0_sample_nq-dev-sample.jsonl.gz"
 
@@ -199,9 +200,11 @@ def natural_questions(dev=False, Large=False, long=False):
     ctx,que,ans_l,ans_s = list(), list(), list(), list()
     context, question = -1, -1
     if not os.path.exists(NQ_SP_DEV):
-        raise RuntimeError("natural question simple dev set not in ./data")
+            with TqdmUpTo(unit='B', unit_scale=True, miniters=1, desc=NQ_SP_DEV_URL.split('/')[-1]) as t:    
+                urllib.request.urlretrieve(NQ_SP_DEV_URL, NQ_SP_DEV)  
     if not os.path.exists(NQ_SP_TRAIN):
-        raise RuntimeError("natural question simple train set not in ./data")    
+            with TqdmUpTo(unit='B', unit_scale=True, miniters=1, desc=NQ_SP_TRAIN_URL.split('/')[-1]) as t:    
+                urllib.request.urlretrieve(NQ_SP_TRAIN_URL, NQ_SP_TRAIN)  
     if Large:
         p = subprocess.Popen("gsutil -m cp -R gs://natural_questions/v1.0 ./data", shell=True)
      
@@ -212,11 +215,259 @@ def natural_questions(dev=False, Large=False, long=False):
     else:
         file = open(NQ_SP_TRAIN, 'rb')
 
+    import enum
+    
+    class AnswerType(enum.IntEnum):
+        UNKNOWN = 0
+        YES = 1
+        NO = 2
+        SHORT = 3
+        LONG = 4
 
-    annotation_dict = {}        
+    class Answer(collections.namedtuple("Answer", ["type", "text", "offset"])):
+        def __new__(cls, type_, text=None, offset=None):
+            return super(Answer, cls).__new__(cls, type_, text, offset)
+
+    class NqExample(object):        
+        def __init__(self, example_id, qas_id, questions, doc_tokens, doc_tokens_map=None, answer=None, start_position=None, end_position=None):
+            self.example_id = example_id
+            self.qas_id = qas_id
+            self.questions = questions
+            self.doc_tokens = doc_tokens
+            self.doc_tokens_map = doc_tokens_map
+            self.answer = answer
+            self.start_position = start_position
+            self.end_position = end_position
+
+    def should_skip_context(e, idx):
+        if (not e["long_answer_candidates"][idx]["top_level"]):
+            return True
+        elif not get_candidate_text(e, idx).text.strip():
+            return True
+        else:
+            return False
+
+    def get_first_annotation(e):
+        positive_annotations = sorted( [a for a in e["annotations"] if has_long_answer(a)], key=lambda a: a["long_answer"]["candidate_index"])
+        for a in positive_annotations:
+            if a["short_answers"]:
+            idx = a["long_answer"]["candidate_index"]
+            start_token = a["short_answers"][0]["start_token"]
+            end_token = a["short_answers"][-1]["end_token"]
+            return a, idx, (token_to_char_offset(e, idx, start_token), token_to_char_offset(e, idx, end_token) - 1)
+
+        for a in positive_annotations:
+            idx = a["long_answer"]["candidate_index"]
+            return a, idx, (-1, -1)
+
+        return None, -1, (-1, -1)
+
+    def get_text_span(example, span):
+        token_positions = []
+        tokens = []
+        for i in range(span["start_token"], span["end_token"]):
+            t = example["document_tokens"][i]
+            if not t["html_token"]:
+            token_positions.append(i)
+            token = t["token"].replace(" ", "")
+            tokens.append(token)
+        return TextSpan(token_positions, " ".join(tokens))
+
+    def token_to_char_offset(e, candidate_idx, token_idx):
+        c = e["long_answer_candidates"][candidate_idx]
+        char_offset = 0
+        for i in range(c["start_token"], token_idx):
+            t = e["document_tokens"][i]
+            if not t["html_token"]:
+            token = t["token"].replace(" ", "")
+            char_offset += len(token) + 1
+        return char_offset
+
+    def get_candidate_type(e, idx):
+        if first_token == "<Table>":
+            return "Table"
+        elif first_token == "<P>":
+            return "Paragraph"
+        elif first_token in ("<Ul>", "<Dl>", "<Ol>"):
+            return "List"
+        elif first_token in ("<Tr>", "<Li>", "<Dd>", "<Dt>"):
+            return "Other"
+        else:
+            print("Unknoww candidate type found: %s", first_token)
+            return "Other"
+
+    def add_candidate_types_and_positions(e):
+        for idx, c in candidates_iter(e):
+            context_type = get_candidate_type(e, idx)
+            if counts[context_type] < FLAGS.max_position:
+                counts[context_type] += 1
+            c["type_and_position"] = "[%s=%d]" % (context_type, counts[context_type])
+    
+    def get_candidate_type_and_position(e, idx):
+        if idx < 0 or idx >= len(e["long_answer_candidates"]):
+            return TextSpan([], "")
+        return get_text_span(e, e["long_answer_candidates"][idx])
+
+    def candidates_iter(e):
+        for idx, c in enumerate(e["long_answer_candidates"]):
+            if should_skip_context(e, idx):
+                continue
+        yield idx, c
+
+    def create_example_from_jsonl(line):
+        e = json.loads(line, object_pairs_hook=collections.OrderedDict)
+        add_candidate_types_and_positions(e)
+        annotation, annotated_idx, annotated_sa = get_first_annotation(e)
+        question = {"input_text": e["question_text"]}
+        answer = { "candidate_id": annotated_idx, "span_text": "", "span_start": -1, "span_end": -1, "input_text": "long"}
+        if annotation is not None:
+            assert annotation["yes_no_answer"] in ("YES", "NO", "NONE")
+            if annotation["yes_no_answer"] in ("YES", "NO"):
+                answer["input_text"] = annotation["yes_no_answer"].lower()
+        if annotated_sa != (-1, -1):
+            answer["input_text"] = "short"
+            span_text = get_candidate_text(e, annotated_idx).text
+            answer["span_text"] = span_text[annotated_sa[0]:annotated_sa[1]]
+            answer["span_start"] = annotated_sa[0]
+            answer["span_end"] = annotated_sa[1]
+            expected_answer_text = get_text_span(e, {
+                    "start_token": annotation["short_answers"][0]["start_token"],
+                    "end_token": annotation["short_answers"][-1]["end_token"],
+                }).text
+            assert expected_answer_text == answer["span_text"], (expected_answer_text, answer["span_text"])
+        elif annotation and annotation["long_answer"]["candidate_index"] >= 0:
+            answer["span_text"] = get_candidate_text(e, annotated_idx).text
+            answer["span_start"] = 0
+            answer["span_end"] = len(answer["span_text"])
+        context_idxs = [-1]
+        context_list = [{"id": -1, "type": get_candidate_type_and_position(e, -1)}]
+        context_list[-1]["text_map"], context_list[-1]["text"] = (get_candidate_text(e, -1))
+        for idx, _ in candidates_iter(e):
+            context = {"id": idx, "type": get_candidate_type_and_position(e, idx)}
+            context["text_map"], context["text"] = get_candidate_text(e, idx)
+            context_idxs.append(idx)
+            context_list.append(context)
+            if len(context_list) >= FLAGS.max_contexts:
+                break
+        example = {
+            "name": e["document_title"],
+            "id": str(e["example_id"]),
+            "questions": [question],
+            "answers": [answer],
+            "has_correct_context": annotated_idx in context_idxs
+        }
+
+        single_map = []
+        single_context = []
+        offset = 0
+        for context in context_list:
+            single_map.extend([-1, -1])
+            single_context.append("[ContextId=%d] %s" % (context["id"], context["type"]))
+            offset += len(single_context[-1]) + 1
+            if context["id"] == annotated_idx:
+                answer["span_start"] += offset
+                answer["span_end"] += offset
+
+            if context["text"]:
+                single_map.extend(context["text_map"])
+                single_context.append(context["text"])
+                offset += len(single_context[-1]) + 1
+
+        example["contexts"] = " ".join(single_context)
+        example["contexts_map"] = single_map
+        if annotated_idx in context_idxs:
+            expected = example["contexts"][answer["span_start"]:answer["span_end"]]
+            assert expected == answer["span_text"], (expected, answer["span_text"])
+
+        return example
+
+    def make_nq_answer(contexts, answer):
+        start = answer["span_start"]
+        end = answer["span_end"]
+        input_text = answer["input_text"]
+
+        if (answer["candidate_id"] == -1 or start >= len(contexts) or
+            end > len(contexts)):
+            answer_type = AnswerType.UNKNOWN
+            start = 0
+            end = 1
+        elif input_text.lower() == "yes":
+            answer_type = AnswerType.YES
+        elif input_text.lower() == "no":
+            answer_type = AnswerType.NO
+        elif input_text.lower() == "long":
+            answer_type = AnswerType.LONG
+        else:
+            answer_type = AnswerType.SHORT
+        return Answer(answer_type, text=contexts[start:end], offset=start)
+    
+    def read_nq_entry(entry):
+        def is_whitespace(c):
+            return c in " \t\r\n" or ord(c) == 0x202F
+        examples = []
+        contexts_id = entry["id"]
+        contexts = entry["contexts"]
+        doc_tokens = []
+        char_to_word_offset = []
+        prev_is_whitespace = True
+        for c in contexts:
+            if is_whitespace(c):
+                prev_is_whitespace = True
+            else:
+                if prev_is_whitespace:
+                    doc_tokens.append(c)
+                else:
+                    doc_tokens[-1] += c
+                prev_is_whitespace = False
+            char_to_word_offset.append(len(doc_tokens) - 1)
+
+        questions = []
+        for i, question in enumerate(entry["questions"]):
+            qas_id = "{}".format(contexts_id)
+            question_text = question["input_text"]
+            start_position = None
+            end_position = None
+            answer = None
+            if dev:
+                answer_dict = entry["answers"][i]
+                answer = make_nq_answer(contexts, answer_dict)
+                if answer is None or answer.offset is None:
+                    continue
+                start_position = char_to_word_offset[answer.offset]
+                end_position = char_to_word_offset[answer.offset + len(answer.text) - 1]
+            actual_text = " ".join(doc_tokens[start_position:(end_position + 1)])
+            cleaned_answer_text = " ".join(
+                tokenization.whitespace_tokenize(answer.text))
+            if actual_text.find(cleaned_answer_text) == -1:
+                print("Could not find answer: '%s' vs. '%s'", actual_text, cleaned_answer_text)
+                continue
+
+            questions.append(question_text)
+            example = NqExample(example_id=int(contexts_id), qas_id=qas_id, questions=questions[:],doc_tokens=doc_tokens,
+                doc_tokens_map=entry.get("contexts_map", None), answer=answer, start_position=start_position, end_position=end_position)
+            examples.append(example)
+        return examples
+
+
+    annotation_dict = {}       
+
+    input_data = [] 
     with GzipFile(fileobj=file) as input_file:
         for line in input_file: #tqdm(input_file, desc='PreProcessing NQ'):
-            json_example = json.loads(line)
+            input_data.append(create_example_from_jsonl(line))
+    examples = []
+    for entry in input_data:
+        examples.extend(read_nq_entry(entry))
+    for example in examples:
+        ctx.append(' '.join([t for t in example.doc_tokens]))
+        context += 1
+        for q in example.questions:
+            que.append(q)
+            question += 1
+        ans_s.append([example.answer, example.start_position, ])
+        
+
+            '''json_example = json.loads(line)
             example_id = json_example['example_id']
             document_tokens = json_example['document_tokens']
             ctx.append(" ".join([re.sub(" ", "_", t['token']) for t in json_example['document_tokens'] if t['html_token'] == False]))
@@ -259,7 +510,7 @@ def natural_questions(dev=False, Large=False, long=False):
                     if(long_answer != ''):
                         ans_l.append([long_answer, start, context, question])
     if(long):
-        ans_s.extend(ans_l)                
+        ans_s.extend(ans_l)     '''           
 
     return ctx, que, ans_s
 

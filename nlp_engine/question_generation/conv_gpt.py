@@ -13,13 +13,15 @@ from ignite.metrics import Accuracy, Loss, MetricsLambda, RunningAverage
 from ignite.contrib.handlers import ProgressBar, PiecewiseLinear
 from ignite.contrib.handlers.tensorboard_logger import TensorboardLogger, OutputHandler, OptimizerParamsHandler
 
-
 #subprocess.call("python -m spacy download en_core_web_lg")
 #python -m spacy download en_core_web_lg
 #python -m spacy download en_core_web_sm
+
 EPOCHS = 4
 BATCH_SIZE = 1
 ITERATION_STEP = 8
+THREAD_NUM = 4
+
 def average_distributed_scalar(scalar):
     return scalar
 
@@ -29,12 +31,13 @@ def train():
     optimizer = AdamW(model.parameters(), lr=6.25e-5)
 
     ds = dataloader.Conv_GPT2_DataClass()
-    dl = DataLoader(ds, num_workers=4, batch_size=BATCH_SIZE)    
+    v_dl = dataloader.Conv_GPT2_DataClass(dev=True)
+    dl = DataLoader(ds, num_workers=min(THREAD_NUM, BATCH_SIZE), batch_size=BATCH_SIZE)  
+    v_dl = DataLoader(v_ds, num_workers=min(THREAD_NUM, BATCH_SIZE))  
     scheduler = PiecewiseLinear(optimizer, "lr", [(0, 6.25e-5), (EPOCHS * len(ds)//BATCH_SIZE, 0.0)])
     metrics = { "nll": Loss(torch.nn.CrossEntropyLoss(ignore_index=-1)) }
     metrics.update({ "average_nll": MetricsLambda(average_distributed_scalar, metrics["nll"])  })
     metrics["average_ppl"] = MetricsLambda(math.exp, metrics["average_nll"])
-
 
     def update(engine, batch):
         model.train()        
@@ -66,7 +69,6 @@ def train():
     tb_logger.attach(trainer, log_handler=OutputHandler(tag="training", metric_names=["loss"]), event_name=Events.ITERATION_COMPLETED)
     tb_logger.attach(trainer, log_handler=OptimizerParamsHandler(optimizer), event_name=Events.ITERATION_STARTED)
     tb_logger.attach(evaluator, log_handler=OutputHandler(tag="validation", metric_names=list(metrics.keys()), another_engine=trainer), event_name=Events.EPOCH_COMPLETED)
-
     checkpoint_handler = ModelCheckpoint('./checkpoint', '_checkpoint', save_interval=1, n_saved=3)
     trainer.add_event_handler(Events.EPOCH_COMPLETED, checkpoint_handler, {'gpt2_qg': getattr(model, 'module', model)})  
     getattr(model, 'module', model).config.to_json_file(os.path.join('./checkpoint', 'config'))    
