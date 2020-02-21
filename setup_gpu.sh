@@ -10,7 +10,7 @@ conda init --all --dry-run --verbose
 eval "$(command conda 'shell.bash' 'hook' 2> /dev/null)"
 source activate kamn
 pip install -U spacy
-pip install -U transformers 
+pip install -U pytorch-transformers
 pip install -U neuralcoref --no-binary neuralcoref
 pip install -U tensorflow
 pip install -U tensorboardX

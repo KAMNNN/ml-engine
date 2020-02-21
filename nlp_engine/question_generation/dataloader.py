@@ -126,14 +126,16 @@ class BertSQG_DataClass(DataClass):
             x.append(tensor)
         y = torch.tensor(output_tokens, dtype=torch.long)        
         return x, y 
+
+SPECIAL_TOKENS = ['<bos>', '<eos>', "<paragraph>", "<answer-short>", "<answer-long>", "<question>", '<pad>']
+ATTR_SPECIAL_TOKENS = {'bos_token': '<bos>', 'eos_token': '<eos>', 'pad_token': '<pad>', 'additional_special_tokens': ('<paragraph>', '<answer-short>', '<answer-long>', '<question>')}
+MODEL_INPUTS = ["input_ids", "lm_labels", "token_type_ids"]
                     
 class Conv_GPT2_DataClass(DataClass):
-    def __init__(self, dev=False):
+    def __init__(self, tokenizer, dev=False):
         super(Conv_GPT2_DataClass, self).__init__(dev)
-        #self.tokenizer_ = BertTokenizer.from_pretrained("bert-base-uncased")
-        self.tokenizer1 = GPT2Tokenizer.from_pretrained("gpt2")
-        self.SPECIAL_TOKENS = [ "<bos>", "<eos>", "<paragraph>", "<answer-general>", "<answer-specific>", "<question-general>", "<question-specific>", "<pad>" ]
-        self.MODEL_INPUTS = ["input_ids", "lm_labels", "token_type_ids"]
+        self.tokenizer_ = BertTokenizer.from_pretrained("bert-base-uncased")
+        self.tokenizer1 = tokenizer
         self.truncated_sequences = 0
 
     def get_position(self, para_ids, ans_ids, ans_prefix_ids):
@@ -150,19 +152,19 @@ class Conv_GPT2_DataClass(DataClass):
         return len(self.answers)
     
     def __getitem__(self, idx):
-        bos, eos, paragraph, answer_general, answer_specific, question_general, question_specific = self.tokenizer1.convert_tokens_to_ids(self.SPECIAL_TOKENS[:-1])
-        answer, start, context_id, question_id = self.answers[idx]
-        
+        answer_text, start, context_id, question_id = self.answers[idx]
         context_tokens = self.tokenizer1.tokenize(self.contexts[context_id])
         question_tokens = self.tokenizer1.tokenize(self.questions[question_id])
-        answer_tokens = self.tokenizer1.tokenize(answer)
+        answer_tokens = self.tokenizer1.tokenize(answer_text)
         answer_token_prefix = self.tokenizer1.tokenize(self.contexts[context_id][:start])
         
+        bos, eos, paragraph, answer, long_answer, question, padding = self.tokenizer1.convert_tokens_to_ids(SPECIAL_TOKENS)
+        
         total_seq_len = len(context_tokens) + len(answer_tokens) + len(question_tokens) + 4
-        if total_seq_len > self.tokenizer1.max_len: # Heuristic to chop off extra tokens in paragraphs            
+        if total_seq_len > self.tokenizer1.max_len: # Heuristic to chop off extra tokens in paragraphs
             context_tokens = context_tokens[:-1 * (total_seq_len - self.tokenizer1.max_len + 1)]
             self.truncated_sequences += 1
-            assert len(context_tokens) + len(answer_tokens) + len(question_tokens) + 4 < tokenizer.max_len
+            assert len(context_tokens) + len(answer_tokens) + len(question_tokens) + 4 < self.tokenizer.max_len
 
         context_tokens = self.tokenizer1.convert_tokens_to_ids(context_tokens)
         question_tokens = self.tokenizer1.convert_tokens_to_ids(question_tokens)
@@ -171,31 +173,24 @@ class Conv_GPT2_DataClass(DataClass):
         
         token_start, token_end = self.get_position(context_tokens, answer_tokens, answer_token_prefix)
 
-
         sequence = [bos] + context_tokens
-        token_types = [ answer_general if ((i - 1) >= token_start and (i - 1) < token_end) else paragraph  for i in range(len(context_tokens) + 1)]
+        token_types = [ answer if ((i - 1) >= token_start and (i - 1) < token_end) else paragraph  for i in range(len(context_tokens) + 1)]
         lm_labels = [-1 for _ in range(len(context_tokens)+1)]
         
-        sequence.extend([answer_general] + answer_tokens)
-        token_types.extend([answer_general for _ in range(len(answer_tokens) + 1)])
+        sequence.extend([answer] + answer_tokens)
+        token_types.extend([answer for _ in range(len(answer_tokens) + 1)])
         lm_labels.extend([-1 for _ in range(len(answer_tokens) + 1)])
 
-        sequence.extend([question_general] + question_tokens + [eos])
-        token_types.extend([question_general for _ in range(len(question_tokens) + 2)])        
+        sequence.extend([question] + question_tokens + [eos])
+        token_types.extend([question for _ in range(len(question_tokens) + 2)])
         lm_labels.extend([-1] + question_tokens + [eos])
-        assert len(sequence) == len(token_types)
-        assert len(token_types) == len(lm_labels)
-        
-        instance = {
-            "input_ids": sequence,
-            "token_type_ids": token_types,
-            "lm_labels": lm_labels
-        }
 
-        padding = self.tokenizer1.convert_tokens_to_ids(self.SPECIAL_TOKENS[-1])
+        instance = {"input_ids": sequence, "token_type_ids": token_types, "lm_labels": lm_labels}
+
         max_l = self.tokenizer1.max_len
         out = list()
-        for name in instance.keys():     
-            out.append(torch.tensor( instance[name] + [padding if name != 'lm_labels' else -1] * (max_l - len(instance[name])), dtype=torch.long))
+        for name in instance.keys():
+            #out.append(torch.tensor( instance[name] + [padding if name != 'lm_labels' else -1] * (max_l - len(instance[name])), dtype=torch.long))
+            out.append(torch.tensor(instance[name], dtype=torch.long))
         
         return out
