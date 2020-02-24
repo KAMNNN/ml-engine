@@ -20,7 +20,7 @@ from ignite.contrib.handlers import ProgressBar, PiecewiseLinear
 from ignite.contrib.handlers.tensorboard_logger import TensorboardLogger, OutputHandler, OptimizerParamsHandler
 
 from argparse import ArgumentParser
-#subprocess.call("python -m spacy download en_core_web_lg")
+#subprocess.call("python -m spacy download en_core_web_lg", shell=True)
 #python -m spacy download en_core_web_lg
 #python -m spacy download en_core_web_sm
 

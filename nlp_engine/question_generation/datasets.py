@@ -20,6 +20,14 @@ from gensim.scripts.glove2word2vec import glove2word2vec
 from gensim.models import Word2Vec
 from gensim.models.word2vec import LineSentence
 from gensim.models.wrappers import FastText
+try:
+    nlp = spacy.load('en_core_web_lg')
+except OSError:
+    try:
+        nlp = spacy.load("en")
+    except OSError:
+        subprocess.run("python -m spacy download en_web_core_lg", shell=True, capture_output=True)
+
 
 TRAIN_SET = { 
     "squad" : "https://rajpurkar.github.io/SQuAD-explorer/dataset/train-v2.0.json",
@@ -45,13 +53,11 @@ COQA_TRAIN = "./data/coqa-train-v1.0.json"
 COQA_DEV   = "./data/coqa-dev-v1.0.json"
 QUAC_TRAIN = "./data/quac-train-v0.2.json"
 QUAC_DEV   = "./data/quac-dev-v0.2.json"
-
 NQ_SP_TRAIN_URL = 'https://storage.cloud.google.com/natural_questions/v1.0/sample/nq-train-sample.jsonl.gz'
 NQ_SP_DEV_URL = 'https://storage.cloud.google.com/natural_questions/v1.0/sample/nq-dev-sample.jsonl.gz'
 NQ_SP_TRAIN = "./data/v1.0_sample_nq-train-sample.jsonl.gz"
 NQ_SP_DEV = "./data/v1.0_sample_nq-dev-sample.jsonl.gz"
 
-nlp = spacy.load('en_core_web_lg')
 
 class TqdmUpTo(tqdm):
     def update_to(self, b=1, bsize=1, tsize=None):
@@ -59,16 +65,19 @@ class TqdmUpTo(tqdm):
             self.total = tsize
         self.update(b * bsize - self.n)
 
+if(os.getcwd().split('/')[-1] != 'question_generation' or os.getcwd().split('\\')[-1] != 'question_generation'): 
+    os.chdir('./question_generation')
+
 if not os.path.exists('./data'):
     os.makedirs('./data')
 if not os.path.exists('./checkpoint'):
     os.makedirs('./checkpoint')
 if not os.path.exists('./logs'):
     os.makedirs('./logs')
-    
 
-def vectorize(wikipedia=False, fasttext=False):
-    if(fasttext):
+def vectorize(vectorize_type='fast'):
+    '''fast wiki glove'''
+    if(vectorize_type == 'fast'):
         if not os.path.exists(FASTTEXT_BIN):
             with TqdmUpTo(unit='B', unit_scale=True, miniters=1, desc=FASTTEXT_URL.split('/')[-1]) as t:
                 urllib.request.urlretrieve(FASTTEXT_URL, './data/wiki.en.zip', reporthook=t.update_to)
@@ -80,7 +89,7 @@ def vectorize(wikipedia=False, fasttext=False):
             del model
             return word_vectors
  
-    elif(wikipedia):
+    elif(vectorize_type == 'wiki'):
         if not os.path.exists(WIKI_DATA):
             with TqdmUpTo(unit='B', unit_scale=True, miniters=1, desc=WIKI_URL.split('/')[-1]) as t:    
                 urllib.request.urlretrieve(WIKI_URL, WIKI_DATA)
@@ -95,8 +104,9 @@ def vectorize(wikipedia=False, fasttext=False):
             word_vectors.save_word2vec_format('./data/wiki_word_vec.bin')
             return word_vectors
         else:
-            return Word2Vec.load('./data/wiki_word_vec.bin')           
-    else:                   
+            return Word2Vec.load('./data/wiki_word_vec.bin') 
+                      
+    if(vectorize_type == 'glove'):                   
         if not os.path.exists(GLOVE_DATA):
             with TqdmUpTo(unit='B', unit_scale=True, miniters=1, desc=GLOVE_URL.split('/')[-1]) as t:
                 urllib.request.urlretrieve(GLOVE_URL, './data/glove.840B.300d.zip', reporthook=t.update_to)
@@ -233,7 +243,7 @@ def natural_questions(dev=False, Large=False, long=False):
             with TqdmUpTo(unit='B', unit_scale=True, miniters=1, desc=NQ_SP_TRAIN_URL.split('/')[-1]) as t:    
                 urllib.request.urlretrieve(NQ_SP_TRAIN_URL, NQ_SP_TRAIN)  
     if Large:
-        p = subprocess.Popen("gsutil -m cp -R gs://natural_questions/v1.0 ./data", shell=True)
+        p = subprocess.call("gsutil -m cp -R gs://natural_questions/v1.0 ./data", shell=True)
         NQ_SP_DEV = './v1.0/train/dev/'
     
     if(dev):
@@ -290,12 +300,7 @@ def natural_questions(dev=False, Large=False, long=False):
             print(c)
         if len(que[q]) < 1:
             print(q)
-
-
     return ctx, que, ans_s
-
-
-
 
 def preprocess(dev=False, *args):
     ctx, que, ans = list(), list(), list()

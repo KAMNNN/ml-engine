@@ -14,7 +14,7 @@ RUN rm Anaconda3-5.0.1-Linux-x86_64.sh
 
 ENV PATH /root/anaconda3/bin:$PATH
 
-RUN conda udpate conda
+RUN conda update conda
 RUN conda update anaconda
 RUN conda update --all
 RUN bash ./setup.sh

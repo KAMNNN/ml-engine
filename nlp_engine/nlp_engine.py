@@ -3,19 +3,25 @@ import spacy
 import neuralcoref
 from transformers import *
 from gensim.parsing.porter import PorterStemmer
-import question_generation.data
+import question_generation.datasets as data
 
+try:
+    nlp = spacy.load("en_core_web_lg")
+except OSError:
+    try:
+        nlp = spacy.load("en")
+    except OSError:
+        subprocess.run("python -m spacy download en_web_core_lg", shell=True, capture_output=True)
 
-nlp = spacy.load("en_core_web_lg")
 neuralcoref.add_to_pipe(nlp)
 
 class nlp_engine:
     def __init__(self,):
         self.tokenizer   = BertTokenizer.from_pretrained("bert-base-uncased")
         self.model       = BertModel.from_pretrained("bert-base-uncased")
-        self.use_coref = False
-        self.vectorizer = data.vectorize(False, True)
-        self.stemmer = PorterStemmer()
+        self.use_coref   = False
+        self.vectorizer  = data.vectorize('fast')
+        self.stemmer     = PorterStemmer()
 
     def make_multiple_choice(self, word, sentence, ai=False):
         if(word in sentence):
@@ -53,8 +59,6 @@ class nlp_engine:
                 if( (token.pos_ == 'PROPN' or token.pos_ == 'NOUN') and token._.in_coref):
                     for cluster in token._.coref_clusters:
                         nn_spans.append((token.text, cluster.main.text))
-
-
 
         sa_pairs = dict()
         for a,s in ner_spans + nn_spans:
